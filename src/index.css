@@ -327,4 +327,12 @@ h1, h2, h3, h4, h5, h6 {
     right: 12px;
     left: 12px;
   }
+
+  .topbar-actions {
+    gap: 6px;
+  }
+
+  .topbar-actions button {
+    font-size: 13px;
+  }
 }

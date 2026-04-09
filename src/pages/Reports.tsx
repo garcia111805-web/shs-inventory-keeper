@@ -15,7 +15,7 @@ export default function Reports() {
   });
 
   return (
-    <div className="p-8 space-y-5">
+    <div className="p-4 md:p-8 space-y-5">
       {categories.map(cat => {
         const catItems = items.filter(i => i.category === cat && i.quantity > 0)
           .sort((a, b) => b.quantity - a.quantity)
@@ -33,7 +33,7 @@ export default function Reports() {
               <div className="space-y-2">
                 {catItems.map(item => (
                   <div key={item.id} className="flex items-center gap-3">
-                    <span className="font-body font-semibold" style={{ width: 208, fontSize: 14, color: 'var(--fg-color)' }}>
+                    <span className="font-body font-semibold min-w-0 flex-1 truncate" style={{ maxWidth: 208, fontSize: 14, color: 'var(--fg-color)' }}>
                       {item.name}
                     </span>
                     <div className="flex-1 rounded-full overflow-hidden" style={{ height: 24, background: 'var(--donut-track)' }}>
@@ -61,6 +61,7 @@ export default function Reports() {
         <p className="font-body mb-4" style={{ fontSize: 12, color: 'var(--muted-text)' }}>
           Low stock and out-of-stock items across all categories
         </p>
+        <div className="table-scroll">
         <table className="w-full">
           <thead>
             <tr style={{ background: 'var(--table-header-bg)' }}>
@@ -93,6 +94,7 @@ export default function Reports() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

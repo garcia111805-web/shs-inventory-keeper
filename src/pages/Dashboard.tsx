@@ -40,9 +40,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-8 space-y-5">
+    <div className="p-4 md:p-8 space-y-5">
       {/* Row 1: Stat cards */}
-      <div className="flex gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Total Items', value: total, color: '#0d1b6e', icon: <Package size={22} color="white" /> },
           { label: 'In Stock', value: inStock, color: '#15803d', icon: <CheckCircle size={22} color="white" /> },
@@ -70,7 +70,7 @@ export default function Dashboard() {
       </div>
 
       {/* Row 2: Donut charts */}
-      <div className="flex gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {catStats.map(cs => {
           const circumference = 2 * Math.PI * 52;
           const totalItems = cs.total || 1;
@@ -136,7 +136,7 @@ export default function Dashboard() {
           <h3 className="font-heading font-bold" style={{ fontSize: 16, color: 'var(--heading-color)' }}>
             Stock Breakdown by Category
           </h3>
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
             {[
               { label: 'In Stock', color: '#15803d' },
               { label: 'Low Stock', color: '#d97706' },
@@ -206,7 +206,7 @@ export default function Dashboard() {
       </div>
 
       {/* Row 4: Recent Usage & Recent Transactions */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-2xl p-5 panel-card">
           <h3 className="font-heading font-bold" style={{ fontSize: 16, color: 'var(--heading-color)' }}>Recent Usage</h3>
           <p className="font-body mb-3" style={{ fontSize: 12, color: 'var(--muted-text)' }}>Last 5 items used by staff</p>

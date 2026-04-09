@@ -57,20 +57,20 @@ export default function TopBar({ onToggleSidebar, onLogUsage, onAddItem }: Props
       <div className="topbar-actions">
         <button
           onClick={onLogUsage}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
+          className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
           style={{ fontSize: 14, background: '#e8b400', color: '#0d1b6e' }}
         >
           <ClipboardList size={16} />
-          Log Usage
+          <span>Log Usage</span>
         </button>
         {isInventory && onAddItem && (
           <button
             onClick={onAddItem}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
             style={{ fontSize: 14, background: '#0d1b6e', color: 'white' }}
           >
             <Plus size={16} />
-            Add Item
+            <span>Add Item</span>
           </button>
         )}
       </div>
