@@ -15,6 +15,7 @@ export default function Index() {
   const { currentPage } = useInventory();
   const [showAddItem, setShowAddItem] = useState(false);
   const [showLogUsage, setShowLogUsage] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isInventory = ['cleaning', 'office', 'clinic'].includes(currentPage);
 
@@ -31,15 +32,20 @@ export default function Index() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--app-bg)' }}>
-      <Sidebar />
-      <div style={{ marginLeft: 260 }}>
+    <div className="app-shell">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="app-content">
         <TopBar
+          onToggleSidebar={() => setSidebarOpen(open => !open)}
           onLogUsage={() => setShowLogUsage(true)}
           onAddItem={isInventory ? () => setShowAddItem(true) : undefined}
         />
         {renderPage()}
       </div>
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
       <ToastContainer />
       {showAddItem && (
         <AddEditItemModal
