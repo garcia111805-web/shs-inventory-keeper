@@ -1,6 +1,6 @@
 import { useInventory } from '../context/InventoryContext';
 import { PageName, getStatus } from '../types';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, X } from 'lucide-react';
 
 const navSections = [
   {
@@ -24,7 +24,12 @@ const navSections = [
   },
 ];
 
-export default function Sidebar() {
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ isOpen, onClose }: Props) {
   const { currentPage, setCurrentPage, items, darkMode, toggleDarkMode } = useInventory();
 
   const outOfStockCounts = {
@@ -33,15 +38,21 @@ export default function Sidebar() {
     clinic: items.filter(i => i.category === 'clinic' && getStatus(i) === 'out-of-stock').length,
   };
 
+  const handleNav = (page: PageName) => {
+    setCurrentPage(page);
+    onClose();
+  };
+
   return (
-    <div
-      className="fixed left-0 top-0 bottom-0 flex flex-col"
+    <aside
+      className={`sidebar ${isOpen ? 'open' : ''}`}
       style={{
-        width: 260,
         background: 'linear-gradient(175deg, #0a1560 0%, #0d1b6e 45%, #1a0a3e 75%, #6b0a0a 100%)',
-        zIndex: 100,
       }}
     >
+      <button className="sidebar-close" onClick={onClose} aria-label="Close sidebar">
+        <X size={18} />
+      </button>
       {/* Logo area */}
       <div className="flex flex-col items-center py-5 px-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
         <img
@@ -79,7 +90,7 @@ export default function Sidebar() {
                 return (
                   <button
                     key={item.page}
-                    onClick={() => setCurrentPage(item.page)}
+                    onClick={() => handleNav(item.page)}
                     className="w-full text-left px-3 py-2 rounded-lg text-sm font-body flex items-center justify-between transition-all"
                     style={active ? {
                       background: '#e8b400',
@@ -133,6 +144,6 @@ export default function Sidebar() {
           {darkMode ? 'Dark Mode' : 'Light Mode'}
         </button>
       </div>
-    </div>
+    </aside>
   );
 }
