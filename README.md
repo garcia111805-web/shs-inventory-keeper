@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# SSHS Inventory Management System
 
-TODO: Document your project here
+Inventory Management System for Sucat Senior High School, City of Muntinlupa.
