@@ -21,8 +21,8 @@ export default function TransactionLog() {
   const typeColors: Record<string, string> = { restock: '#1d4ed8', borrow: '#d97706', use: '#b91c1c' };
 
   return (
-    <div className="p-8 space-y-4">
-      <div className="flex gap-3">
+    <div className="p-4 md:p-8 space-y-4">
+      <div className="flex flex-wrap gap-3">
         <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
           className="flex-1 rounded-xl px-3 py-2.5 font-body"
           style={{ fontSize: 14, background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--fg-color)', outline: 'none' }}>
@@ -42,6 +42,7 @@ export default function TransactionLog() {
       </div>
 
       <div className="rounded-2xl panel-card overflow-hidden">
+        <div className="table-scroll">
         <table className="w-full">
           <thead>
             <tr style={{ background: 'var(--table-header-bg)' }}>
@@ -76,6 +77,7 @@ export default function TransactionLog() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       <p className="font-body" style={{ fontSize: 13, color: 'var(--muted-text)' }}>{filtered.length} transactions found</p>
     </div>

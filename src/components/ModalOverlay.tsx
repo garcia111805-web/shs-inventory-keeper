@@ -19,7 +19,7 @@ export default function ModalOverlay({ children, onClose }: Props) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-md rounded-2xl p-6 shadow-2xl animate-slide-up"
+        className="w-full max-w-md mx-4 rounded-2xl p-5 sm:p-6 shadow-2xl animate-slide-up"
         style={{ background: 'var(--card-bg)', color: 'var(--fg-color)', border: '1px solid var(--card-border)' }}
         onClick={(e) => e.stopPropagation()}
       >
