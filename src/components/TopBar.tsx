@@ -1,8 +1,8 @@
 import { useInventory } from '../context/InventoryContext';
-import { Search, ClipboardList, Plus } from 'lucide-react';
-import { getCategoryLabel } from '../types';
+import { Search, ClipboardList, Plus, Menu } from 'lucide-react';
 
 interface Props {
+  onToggleSidebar: () => void;
   onLogUsage: () => void;
   onAddItem?: () => void;
 }
@@ -16,25 +16,28 @@ const pageTitles: Record<string, string> = {
   reports: 'Reports',
 };
 
-export default function TopBar({ onLogUsage, onAddItem }: Props) {
+export default function TopBar({ onToggleSidebar, onLogUsage, onAddItem }: Props) {
   const { currentPage, searchQuery, setSearchQuery } = useInventory();
   const isInventory = ['cleaning', 'office', 'clinic'].includes(currentPage);
 
   return (
     <div
-      className="sticky top-0 z-50 flex items-center px-8"
+      className="topbar"
       style={{
         background: 'var(--topbar-bg)',
         borderBottom: '1px solid var(--topbar-border)',
         backdropFilter: 'blur(12px)',
-        padding: '14px 32px',
       }}
     >
-      <h1 className="font-heading font-bold flex-shrink-0" style={{ fontSize: 20, color: 'var(--heading-color)' }}>
-        {pageTitles[currentPage] || 'Dashboard'}
-      </h1>
-      <div className="flex-1" />
-      <div className="relative" style={{ width: '40%' }}>
+      <div className="topbar-left">
+        <button className="hamburger-btn" onClick={onToggleSidebar} aria-label="Open menu">
+          <Menu size={18} />
+        </button>
+        <h1 className="font-heading font-bold" style={{ fontSize: 20, color: 'var(--heading-color)' }}>
+          {pageTitles[currentPage] || 'Dashboard'}
+        </h1>
+      </div>
+      <div className="topbar-search">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted-text)' }} />
         <input
           type="text"
@@ -51,8 +54,7 @@ export default function TopBar({ onLogUsage, onAddItem }: Props) {
           }}
         />
       </div>
-      <div className="flex-1" />
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="topbar-actions">
         <button
           onClick={onLogUsage}
           className="flex items-center gap-2 px-4 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
