@@ -1,16 +1,53 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { useInventory } from '../context/InventoryContext';
+import Sidebar from '../components/Sidebar';
+import TopBar from '../components/TopBar';
+import ToastContainer from '../components/ToastContainer';
+import Dashboard from './Dashboard';
+import InventoryPage from './InventoryPage';
+import TransactionLog from './TransactionLog';
+import Reports from './Reports';
+import AddEditItemModal from '../components/AddEditItemModal';
+import LogUsageModal from '../components/LogUsageModal';
+import { Category } from '../types';
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+export default function Index() {
+  const { currentPage } = useInventory();
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [showLogUsage, setShowLogUsage] = useState(false);
+
+  const isInventory = ['cleaning', 'office', 'clinic'].includes(currentPage);
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'dashboard': return <Dashboard />;
+      case 'cleaning': return <InventoryPage category="cleaning" onAddItem={() => setShowAddItem(true)} />;
+      case 'office': return <InventoryPage category="office" onAddItem={() => setShowAddItem(true)} />;
+      case 'clinic': return <InventoryPage category="clinic" onAddItem={() => setShowAddItem(true)} />;
+      case 'transactions': return <TransactionLog />;
+      case 'reports': return <Reports />;
+      default: return <Dashboard />;
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="min-h-screen" style={{ background: 'var(--app-bg)' }}>
+      <Sidebar />
+      <div style={{ marginLeft: 260 }}>
+        <TopBar
+          onLogUsage={() => setShowLogUsage(true)}
+          onAddItem={isInventory ? () => setShowAddItem(true) : undefined}
+        />
+        {renderPage()}
+      </div>
+      <ToastContainer />
+      {showAddItem && (
+        <AddEditItemModal
+          defaultCategory={currentPage as Category}
+          onClose={() => setShowAddItem(false)}
+        />
+      )}
+      {showLogUsage && <LogUsageModal onClose={() => setShowLogUsage(false)} />}
     </div>
   );
-};
-
-const Index = PlaceholderIndex;
-
-export default Index;
+}
