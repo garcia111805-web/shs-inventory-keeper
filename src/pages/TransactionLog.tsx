@@ -1,12 +1,11 @@
-import { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useInventory } from '../context/InventoryContext';
-import { Category, getCategoryLabel, getStatus } from '../types';
-import StatusBadge from '../components/StatusBadge';
+import { getCategoryLabel } from '../types';
 
 export default function TransactionLog() {
   const { transactions, searchQuery } = useInventory();
-  const [catFilter, setCatFilter] = React.useState('all');
-  const [typeFilter, setTypeFilter] = React.useState('all');
+  const [catFilter, setCatFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   const filtered = useMemo(() => {
     let list = [...transactions];
@@ -19,7 +18,7 @@ export default function TransactionLog() {
     return list;
   }, [transactions, searchQuery, catFilter, typeFilter]);
 
-  const typeColors = { restock: '#1d4ed8', borrow: '#d97706', use: '#b91c1c' };
+  const typeColors: Record<string, string> = { restock: '#1d4ed8', borrow: '#d97706', use: '#b91c1c' };
 
   return (
     <div className="p-8 space-y-4">
@@ -82,5 +81,3 @@ export default function TransactionLog() {
     </div>
   );
 }
-
-import React from 'react';
