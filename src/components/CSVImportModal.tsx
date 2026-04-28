@@ -3,6 +3,7 @@ import { useInventory } from '../context/InventoryContext';
 import { Category } from '../types';
 import ModalOverlay from './ModalOverlay';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Props {
   onClose: () => void;
@@ -86,6 +87,45 @@ export default function CSVImportModal({ onClose }: Props) {
   const [failed, setFailed] = useState(0);
   const [done, setDone] = useState(false);
 
+  const processRows = (headers: string[], rows: string[][]) => {
+    const mapped = headers.map(normalizeHeader);
+    const nameIdx = mapped.indexOf('name');
+    const catIdx = mapped.indexOf('category');
+    const unitIdx = mapped.indexOf('unit');
+    const qtyIdx = mapped.indexOf('quantity');
+    const threshIdx = mapped.indexOf('threshold');
+    const notesIdx = mapped.indexOf('notes');
+
+    if (nameIdx === -1) {
+      setError(`Could not find a "Name" column. Found headers: ${headers.join(', ')}`);
+      return;
+    }
+
+    const existingNames = new Set(items.map(i => i.name.toLowerCase().trim()));
+
+    const parsedItems: ParsedRow[] = rows
+      .filter(row => row[nameIdx]?.trim())
+      .map(row => {
+        const name = row[nameIdx]?.trim() || '';
+        return {
+          name,
+          category: catIdx >= 0 ? normalizeCategory(row[catIdx] || '') : 'office',
+          unit: unitIdx >= 0 ? (row[unitIdx]?.trim() || 'pcs') : 'pcs',
+          quantity: qtyIdx >= 0 ? (parseInt(row[qtyIdx]) || 0) : 0,
+          lowStockThreshold: threshIdx >= 0 ? (parseInt(row[threshIdx]) || 3) : 3,
+          notes: notesIdx >= 0 ? (row[notesIdx]?.trim() || '') : '',
+          isDuplicate: existingNames.has(name.toLowerCase()),
+        };
+      });
+
+    if (parsedItems.length === 0) {
+      setError('No valid items found in the file.');
+      return;
+    }
+
+    setParsed(parsedItems);
+  };
+
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -93,59 +133,53 @@ export default function CSVImportModal({ onClose }: Props) {
     setError('');
     setParsed([]);
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const text = ev.target?.result as string;
-        const { headers, rows } = parseCSV(text);
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const isExcel = ['xlsx', 'xls'].includes(ext || '');
 
-        if (headers.length === 0 || rows.length === 0) {
-          setError('CSV file appears empty or has no data rows.');
-          return;
+    if (isExcel) {
+      // Read as Excel
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          const json: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+          if (json.length < 2) {
+            setError('Excel file appears empty or has no data rows.');
+            return;
+          }
+
+          const headers = json[0].map(String);
+          const rows = json.slice(1).map(row => row.map(String));
+          processRows(headers, rows);
+        } catch {
+          setError('Failed to parse Excel file. Please check the format.');
         }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // Read as CSV
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const text = ev.target?.result as string;
+          const { headers, rows } = parseCSV(text);
 
-        const mapped = headers.map(normalizeHeader);
-        const nameIdx = mapped.indexOf('name');
-        const catIdx = mapped.indexOf('category');
-        const unitIdx = mapped.indexOf('unit');
-        const qtyIdx = mapped.indexOf('quantity');
-        const threshIdx = mapped.indexOf('threshold');
-        const notesIdx = mapped.indexOf('notes');
+          if (headers.length === 0 || rows.length === 0) {
+            setError('CSV file appears empty or has no data rows.');
+            return;
+          }
 
-        if (nameIdx === -1) {
-          setError(`Could not find a "Name" column. Found headers: ${headers.join(', ')}`);
-          return;
+          processRows(headers, rows);
+        } catch {
+          setError('Failed to parse CSV file. Please check the format.');
         }
-
-        // Build a set of existing item names for duplicate detection
-        const existingNames = new Set(items.map(i => i.name.toLowerCase().trim()));
-
-        const parsedItems: ParsedRow[] = rows
-          .filter(row => row[nameIdx]?.trim())
-          .map(row => {
-            const name = row[nameIdx]?.trim() || '';
-            return {
-              name,
-              category: catIdx >= 0 ? normalizeCategory(row[catIdx] || '') : 'office',
-              unit: unitIdx >= 0 ? (row[unitIdx]?.trim() || 'pcs') : 'pcs',
-              quantity: qtyIdx >= 0 ? (parseInt(row[qtyIdx]) || 0) : 0,
-              lowStockThreshold: threshIdx >= 0 ? (parseInt(row[threshIdx]) || 3) : 3,
-              notes: notesIdx >= 0 ? (row[notesIdx]?.trim() || '') : '',
-              isDuplicate: existingNames.has(name.toLowerCase()),
-            };
-          });
-
-        if (parsedItems.length === 0) {
-          setError('No valid items found in the CSV.');
-          return;
-        }
-
-        setParsed(parsedItems);
-      } catch (err) {
-        setError('Failed to parse CSV file. Please check the format.');
-      }
-    };
-    reader.readAsText(file);
+      };
+      reader.readAsText(file);
+    }
   };
 
   const newItems = parsed.filter(r => !r.isDuplicate);
@@ -201,7 +235,7 @@ export default function CSVImportModal({ onClose }: Props) {
           <FileSpreadsheet size={18} color="white" />
         </div>
         <h3 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>
-          Import Inventory from CSV
+          Import Inventory from File
         </h3>
       </div>
 
@@ -218,24 +252,24 @@ export default function CSVImportModal({ onClose }: Props) {
           >
             <Upload size={28} style={{ color: 'var(--muted-text)' }} />
             <span className="font-body font-semibold" style={{ fontSize: 14, color: 'var(--fg-color)' }}>
-              {fileName || 'Click to select CSV file'}
+              {fileName || 'Click to select CSV or Excel file'}
             </span>
             <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-              Columns: Name (required), Category, Unit, Quantity, Threshold, Notes
+              Supports .csv, .xlsx, .xls — Columns: Name (required), Category, Unit, Quantity
             </span>
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,.txt"
+              accept=".csv,.txt,.xlsx,.xls"
               onChange={handleFile}
               className="hidden"
             />
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 mt-3 p-3 rounded-xl" style={{ background: 'rgba(185,28,28,0.1)', border: '1px solid rgba(185,28,28,0.2)' }}>
-              <AlertTriangle size={16} color="#b91c1c" />
-              <span className="font-body" style={{ fontSize: 12, color: '#b91c1c' }}>{error}</span>
+            <div className="flex items-start gap-2 mt-3 p-3 rounded-xl" style={{ background: 'rgba(185,28,28,0.1)', border: '1px solid rgba(185,28,28,0.2)' }}>
+              <AlertTriangle size={16} color="#b91c1c" className="flex-shrink-0 mt-0.5" />
+              <span className="font-body" style={{ fontSize: 12, color: '#b91c1c', wordBreak: 'break-word' }}>{error}</span>
             </div>
           )}
 
