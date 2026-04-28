@@ -89,6 +89,49 @@ export default function CSVImportModal({ onClose }: Props) {
 
   // Scan all rows to find the header row (the one with a 'Name' column)
   const processAllRows = (allRows: string[][]) => {
+    // Check for Sucat SHS specific format
+    const isSucatFormat = allRows[0]?.[0]?.toUpperCase().includes('SUCAT SENIOR HIGH SCHOOL');
+    
+    if (isSucatFormat) {
+      const existingNames = new Set(items.map(i => i.name.toLowerCase().trim()));
+      const parsedItems: ParsedRow[] = [];
+      
+      // Start from Row 6 (index 6) based on inspection
+      // Col Mapping: 0,1 (Cleaning In), 2,3 (Cleaning Out), 4,5 (Office In), 6,7 (Office Out), 8,9 (Clinic In), 10,11 (Clinic Out)
+      const sections: { col: number, cat: Category }[] = [
+        { col: 0, cat: 'cleaning' }, { col: 2, cat: 'cleaning' },
+        { col: 4, cat: 'office' }, { col: 6, cat: 'office' },
+        { col: 8, cat: 'clinic' }, { col: 10, cat: 'clinic' }
+      ];
+
+      for (let i = 6; i < allRows.length; i++) {
+        const row = allRows[i];
+        sections.forEach(sec => {
+          const name = row[sec.col]?.trim();
+          const qtyVal = row[sec.col + 1];
+          if (name && name !== 'Materials' && name !== '') {
+            parsedItems.push({
+              name,
+              category: sec.cat,
+              unit: 'pcs',
+              quantity: parseInt(qtyVal) || 0,
+              lowStockThreshold: 3,
+              notes: '',
+              isDuplicate: existingNames.has(name.toLowerCase())
+            });
+          }
+        });
+      }
+
+      if (parsedItems.length === 0) {
+        setError('Detected Sucat SHS format but found no items starting from Row 7.');
+        return;
+      }
+
+      setParsed(parsedItems);
+      return;
+    }
+
     let headerRowIdx = -1;
     let nameIdx = -1;
 
