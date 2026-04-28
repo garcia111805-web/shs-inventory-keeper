@@ -87,23 +87,40 @@ export default function CSVImportModal({ onClose }: Props) {
   const [failed, setFailed] = useState(0);
   const [done, setDone] = useState(false);
 
-  const processRows = (headers: string[], rows: string[][]) => {
+  // Scan all rows to find the header row (the one with a 'Name' column)
+  const processAllRows = (allRows: string[][]) => {
+    let headerRowIdx = -1;
+    let nameIdx = -1;
+
+    // Scan up to 20 rows looking for a header row
+    for (let i = 0; i < Math.min(allRows.length, 20); i++) {
+      const mapped = allRows[i].map(normalizeHeader);
+      const idx = mapped.indexOf('name');
+      if (idx !== -1) {
+        headerRowIdx = i;
+        nameIdx = idx;
+        break;
+      }
+    }
+
+    if (headerRowIdx === -1 || nameIdx === -1) {
+      const firstRowPreview = allRows[0]?.slice(0, 5).join(', ') || '(empty)';
+      setError(`Could not find a "Name" column. First row: ${firstRowPreview}`);
+      return;
+    }
+
+    const headers = allRows[headerRowIdx];
+    const dataRows = allRows.slice(headerRowIdx + 1);
     const mapped = headers.map(normalizeHeader);
-    const nameIdx = mapped.indexOf('name');
     const catIdx = mapped.indexOf('category');
     const unitIdx = mapped.indexOf('unit');
     const qtyIdx = mapped.indexOf('quantity');
     const threshIdx = mapped.indexOf('threshold');
     const notesIdx = mapped.indexOf('notes');
 
-    if (nameIdx === -1) {
-      setError(`Could not find a "Name" column. Found headers: ${headers.join(', ')}`);
-      return;
-    }
-
     const existingNames = new Set(items.map(i => i.name.toLowerCase().trim()));
 
-    const parsedItems: ParsedRow[] = rows
+    const parsedItems: ParsedRow[] = dataRows
       .filter(row => row[nameIdx]?.trim())
       .map(row => {
         const name = row[nameIdx]?.trim() || '';
@@ -152,9 +169,8 @@ export default function CSVImportModal({ onClose }: Props) {
             return;
           }
 
-          const headers = json[0].map(String);
-          const rows = json.slice(1).map(row => row.map(String));
-          processRows(headers, rows);
+          const allRows = json.map(row => row.map(String));
+          processAllRows(allRows);
         } catch {
           setError('Failed to parse Excel file. Please check the format.');
         }
@@ -173,7 +189,7 @@ export default function CSVImportModal({ onClose }: Props) {
             return;
           }
 
-          processRows(headers, rows);
+          processAllRows([headers, ...rows]);
         } catch {
           setError('Failed to parse CSV file. Please check the format.');
         }
