@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useInventory } from '../context/InventoryContext';
-import { InventoryItem, Category } from '../types';
+import { InventoryItem, Category, UNITS } from '../types';
 import ModalOverlay from './ModalOverlay';
 
 interface Props {
@@ -20,16 +20,20 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
   const [threshold, setThreshold] = useState(item?.lowStockThreshold?.toString() || '3');
   const [notes, setNotes] = useState(item?.notes || '');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name.trim()) return;
-    if (isEdit && item) {
-      updateItem({ ...item, name: name.trim(), category, unit, quantity: parseInt(quantity) || 0, lowStockThreshold: parseInt(threshold) || 3, notes });
-      showToast(`${name} updated`, 'success');
-    } else {
-      addItem({ name: name.trim(), category, unit, quantity: parseInt(quantity) || 0, lowStockThreshold: parseInt(threshold) || 3, notes });
-      showToast(`${name} added`, 'success');
+    try {
+      if (isEdit && item) {
+        await updateItem({ ...item, name: name.trim(), category, unit, quantity: parseInt(quantity) || 0, lowStockThreshold: parseInt(threshold) || 3, notes });
+        showToast(`${name} updated`, 'success');
+      } else {
+        await addItem({ name: name.trim(), category, unit, quantity: parseInt(quantity) || 0, lowStockThreshold: parseInt(threshold) || 3, notes });
+        showToast(`${name} added`, 'success');
+      }
+      onClose();
+    } catch (err: any) {
+      showToast(err?.message || 'Operation failed', 'error');
     }
-    onClose();
   };
 
   return (
@@ -53,14 +57,21 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Unit</label>
-            <input className="modal-input" value={unit} onChange={e => setUnit(e.target.value)} />
+            <select className="modal-input" value={unit} onChange={e => setUnit(e.target.value)}>
+              {UNITS.map(u => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
           </div>
           <div>
-            <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Quantity</label>
+            <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>{isEdit ? 'Quantity' : 'Initial Stock Level'}</label>
             <input className="modal-input" type="number" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} />
           </div>
           <div>
-            <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Low Stock Threshold</label>
+            <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              Low Stock Threshold
+              <span title="When stock drops to or below this number, the item will be flagged as 'Low Stock' on the dashboard." style={{ cursor: 'help', fontSize: 13 }}>ℹ️</span>
+            </label>
             <input className="modal-input" type="number" min="0" value={threshold} onChange={e => setThreshold(e.target.value)} />
           </div>
         </div>

@@ -8,6 +8,7 @@
   --topbar-border: rgba(0,0,0,0.07);
   --card-bg: #ffffff;
   --card-border: rgba(0,0,0,0.07);
+  --dropdown-bg: #ffffff;
   --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
   --table-header-bg: rgba(0,0,0,0.025);
   --table-row-hover: rgba(13,27,110,0.035);
@@ -21,11 +22,11 @@
   --status-in-stock-text: #15803d;
   --status-in-stock-dot: #15803d;
   --status-low-stock-bg: #fef3c7;
-  --status-low-stock-text: #b45309;
-  --status-low-stock-dot: #b45309;
+  --status-low-stock-text: #f59e0b;
+  --status-low-stock-dot: #f59e0b;
   --status-out-of-stock-bg: #fee2e2;
-  --status-out-of-stock-text: #b91c1c;
-  --status-out-of-stock-dot: #b91c1c;
+  --status-out-of-stock-text: #dc2626;
+  --status-out-of-stock-dot: #dc2626;
 }
 
 .dark {
@@ -34,6 +35,7 @@
   --topbar-border: rgba(255,255,255,0.08);
   --card-bg: rgba(255,255,255,0.04);
   --card-border: rgba(255,255,255,0.08);
+  --dropdown-bg: #0f1535;
   --card-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
   --table-header-bg: rgba(255,255,255,0.04);
   --table-row-hover: rgba(255,255,255,0.04);
@@ -142,17 +144,55 @@ h1, h2, h3, h4, h5, h6 {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
 }
 
 .animate-slide-up {
   animation: slideUp 0.25s ease-out;
 }
 
+.animate-scale-up {
+  animation: scaleUp 0.25s ease-out;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(220,38,38,0.5); }
+  50% { box-shadow: 0 0 14px rgba(220,38,38,0.8); }
+}
+
+.sidebar-badge-pulse {
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+.field-error {
+  border-color: #dc2626 !important;
+  animation: shake 0.35s ease;
+}
+
+.sticky-thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--card-bg);
 }
 
 /* Layout */

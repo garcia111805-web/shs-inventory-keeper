@@ -3,9 +3,9 @@ import { useInventory } from '../context/InventoryContext';
 import { Category, InventoryItem, getStatus, ItemStatus } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import AddEditItemModal from '../components/AddEditItemModal';
-import TransactionModal from '../components/TransactionModal';
+import StockMovementModal from '../components/StockMovementModal';
 import BulkRestockModal from '../components/BulkRestockModal';
-import { Plus, Pencil, Trash2, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, Download, PackageSearch } from 'lucide-react';
 
 interface Props {
   category: Category;
@@ -36,10 +36,14 @@ export default function InventoryPage({ category, onAddItem }: Props) {
   const totalPages = Math.ceil(filtered.length / perPage);
   const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
 
-  const handleDelete = (item: InventoryItem) => {
+  const handleDelete = async (item: InventoryItem) => {
     if (confirm(`Delete "${item.name}"?`)) {
-      deleteItem(item.id);
-      showToast(`${item.name} deleted`, 'success');
+      try {
+        await deleteItem(item.id);
+        showToast(`${item.name} deleted`, 'success');
+      } catch (err: any) {
+        showToast(err?.message || 'Delete failed', 'error');
+      }
     }
   };
 
@@ -101,7 +105,7 @@ export default function InventoryPage({ category, onAddItem }: Props) {
       <div className="rounded-2xl panel-card overflow-hidden">
         <div className="table-scroll">
         <table className="w-full">
-          <thead>
+          <thead className="sticky-thead">
             <tr style={{ background: 'var(--table-header-bg)' }}>
               {['#', 'ITEM NAME', 'UNIT', 'QTY', 'STATUS', 'LAST UPDATED', 'ACTIONS'].map(h => (
                 <th key={h} className="text-left px-4 py-3 font-body uppercase" style={{ fontSize: 11, color: 'var(--muted-text)', fontWeight: 500 }}>
@@ -111,7 +115,19 @@ export default function InventoryPage({ category, onAddItem }: Props) {
             </tr>
           </thead>
           <tbody>
-            {paginated.map((item, idx) => {
+            {paginated.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="text-center py-16">
+                  <div className="flex flex-col items-center gap-2">
+                    <PackageSearch size={48} style={{ color: 'var(--muted-text)', opacity: 0.4 }} />
+                    <p className="font-body font-semibold" style={{ fontSize: 16, color: 'var(--fg-color)' }}>No Items Found</p>
+                    <p className="font-body" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
+                      {searchQuery ? `No results matching "${searchQuery}"` : 'Add your first item to get started'}
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            ) : paginated.map((item, idx) => {
               const status = getStatus(item);
               return (
                 <tr key={item.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--card-border)' }}>
@@ -172,7 +188,7 @@ export default function InventoryPage({ category, onAddItem }: Props) {
       )}
 
       {editingItem && <AddEditItemModal item={editingItem} onClose={() => setEditingItem(null)} />}
-      {transactionItem && <TransactionModal item={transactionItem} onClose={() => setTransactionItem(null)} />}
+      {transactionItem && <StockMovementModal item={transactionItem} onClose={() => setTransactionItem(null)} />}
       {showBulkRestock && <BulkRestockModal category={category} onClose={() => setShowBulkRestock(false)} />}
     </div>
   );

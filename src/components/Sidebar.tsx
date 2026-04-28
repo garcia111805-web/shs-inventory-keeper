@@ -1,4 +1,5 @@
 import { useInventory } from '../context/InventoryContext';
+import { useAuth } from '../context/AuthContext';
 import { PageName, getStatus } from '../types';
 import { Sun, Moon, X } from 'lucide-react';
 
@@ -31,11 +32,22 @@ interface Props {
 
 export default function Sidebar({ isOpen, onClose }: Props) {
   const { currentPage, setCurrentPage, items, darkMode, toggleDarkMode } = useInventory();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
 
-  const outOfStockCounts = {
-    cleaning: items.filter(i => i.category === 'cleaning' && getStatus(i) === 'out-of-stock').length,
-    office: items.filter(i => i.category === 'office' && getStatus(i) === 'out-of-stock').length,
-    clinic: items.filter(i => i.category === 'clinic' && getStatus(i) === 'out-of-stock').length,
+  // Filter nav sections based on role
+  const filteredSections = navSections.map(section => ({
+    ...section,
+    items: section.items.filter(item => {
+      if (!isAdmin && item.page === 'reports') return false;
+      return true;
+    }),
+  })).filter(section => section.items.length > 0);
+
+  const criticalCounts = {
+    cleaning: items.filter(i => i.category === 'cleaning' && (getStatus(i) === 'out-of-stock' || getStatus(i) === 'low-stock')).length,
+    office: items.filter(i => i.category === 'office' && (getStatus(i) === 'out-of-stock' || getStatus(i) === 'low-stock')).length,
+    clinic: items.filter(i => i.category === 'clinic' && (getStatus(i) === 'out-of-stock' || getStatus(i) === 'low-stock')).length,
   };
 
   const handleNav = (page: PageName) => {
@@ -75,7 +87,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-        {navSections.map(section => (
+        {filteredSections.map(section => (
           <div key={section.label}>
             <p className="font-body uppercase mb-1.5 px-3" style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)', letterSpacing: '0.05em' }}>
               {section.label}
@@ -83,9 +95,9 @@ export default function Sidebar({ isOpen, onClose }: Props) {
             <div className="space-y-0.5">
               {section.items.map(item => {
                 const active = currentPage === item.page;
-                const badgeCount = item.page === 'cleaning' ? outOfStockCounts.cleaning
-                  : item.page === 'office' ? outOfStockCounts.office
-                  : item.page === 'clinic' ? outOfStockCounts.clinic : 0;
+                const badgeCount = item.page === 'cleaning' ? criticalCounts.cleaning
+                  : item.page === 'office' ? criticalCounts.office
+                  : item.page === 'clinic' ? criticalCounts.clinic : 0;
 
                 return (
                   <button
@@ -115,12 +127,13 @@ export default function Sidebar({ isOpen, onClose }: Props) {
                   >
                     <span>{'· '}{item.label}</span>
                     {badgeCount > 0 && (
-                      <span className="font-body font-bold rounded-full px-2 py-0.5" style={{
+                      <span className="font-body font-bold rounded-full px-2 py-0.5 sidebar-badge-pulse" style={{
                         fontSize: 11,
-                        background: '#b91c1c',
+                        background: '#dc2626',
                         color: 'white',
-                        minWidth: 22,
+                        minWidth: 24,
                         textAlign: 'center',
+                        boxShadow: '0 0 8px rgba(220,38,38,0.5)',
                       }}>
                         {badgeCount}
                       </span>
