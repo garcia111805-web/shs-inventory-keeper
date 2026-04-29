@@ -52,6 +52,7 @@ function mapItem(row: any): InventoryItem {
     lowStockThreshold: row.low_stock_threshold ?? row.lowStockThreshold ?? 5,
     notes: row.notes || '',
     lastUpdated: row.last_updated || row.lastUpdated || new Date().toISOString().split('T')[0],
+    location: row.location || undefined,
   };
 }
 
@@ -147,6 +148,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       quantity: data.quantity,
       low_stock_threshold: data.lowStockThreshold,
       notes: data.notes,
+      location: data.location || null,
       last_updated: new Date().toISOString().split('T')[0],
     });
     if (error) {
@@ -164,6 +166,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       quantity: updated.quantity,
       low_stock_threshold: updated.lowStockThreshold,
       notes: updated.notes,
+      location: updated.location || null,
       last_updated: new Date().toISOString().split('T')[0],
     }).eq('id', updated.id);
     if (error) {

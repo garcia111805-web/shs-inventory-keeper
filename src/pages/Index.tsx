@@ -8,6 +8,7 @@ import Dashboard from './Dashboard';
 import InventoryPage from './InventoryPage';
 import TransactionLog from './TransactionLog';
 import Reports from './Reports';
+import SettingsPage from './Settings';
 import AddEditItemModal from '../components/AddEditItemModal';
 import StockMovementModal from '../components/StockMovementModal';
 import CSVImportModal from '../components/CSVImportModal';
@@ -55,6 +56,7 @@ export default function Index() {
       case 'clinic': return <InventoryPage category="clinic" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} />;
       case 'transactions': return <TransactionLog />;
       case 'reports': return isAdmin ? <Reports /> : <Dashboard />;
+      case 'settings': return isAdmin ? <SettingsPage /> : <Dashboard />;
       default: return <Dashboard />;
     }
   };

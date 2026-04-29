@@ -1,7 +1,7 @@
 import { useInventory } from '../context/InventoryContext';
 import { useAuth } from '../context/AuthContext';
 import { PageName, getStatus } from '../types';
-import { Sun, Moon, X } from 'lucide-react';
+import { Sun, Moon, X, Settings } from 'lucide-react';
 
 const navSections = [
   {
@@ -145,6 +145,24 @@ export default function Sidebar({ isOpen, onClose }: Props) {
           </div>
         ))}
       </nav>
+
+      {/* Settings link (admin only) */}
+      {isAdmin && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={() => handleNav('settings' as PageName)}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full font-body text-sm transition-all"
+            style={{
+              background: currentPage === 'settings' ? '#e8b400' : 'rgba(255,255,255,0.08)',
+              color: currentPage === 'settings' ? '#0d1b6e' : 'rgba(255,255,255,0.75)',
+              fontWeight: currentPage === 'settings' ? 600 : 400,
+            }}
+          >
+            <Settings size={16} />
+            Settings
+          </button>
+        </div>
+      )}
 
       {/* Dark mode toggle */}
       <div className="px-3 pb-4">

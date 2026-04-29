@@ -48,8 +48,8 @@ export default function InventoryPage({ category, onAddItem }: Props) {
   };
 
   const exportCSV = () => {
-    const headers = ['#', 'Item Name', 'Unit', 'Qty', 'Status', 'Last Updated'];
-    const rows = filtered.map((item, i) => [i + 1, item.name, item.unit, item.quantity, getStatus(item), item.lastUpdated]);
+    const headers = ['#', 'Item Name', 'Unit', 'Qty', 'Location', 'Status', 'Last Updated'];
+    const rows = filtered.map((item, i) => [i + 1, item.name, item.unit, item.quantity, item.location || '', getStatus(item), item.lastUpdated]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -107,7 +107,7 @@ export default function InventoryPage({ category, onAddItem }: Props) {
         <table className="w-full">
           <thead className="sticky-thead">
             <tr style={{ background: 'var(--table-header-bg)' }}>
-              {['#', 'ITEM NAME', 'UNIT', 'QTY', 'STATUS', 'LAST UPDATED', 'ACTIONS'].map(h => (
+              {['#', 'ITEM NAME', 'UNIT', 'QTY', 'LOCATION', 'STATUS', 'LAST UPDATED', 'ACTIONS'].map(h => (
                 <th key={h} className="text-left px-4 py-3 font-body uppercase" style={{ fontSize: 11, color: 'var(--muted-text)', fontWeight: 500 }}>
                   {h}
                 </th>
@@ -142,6 +142,15 @@ export default function InventoryPage({ category, onAddItem }: Props) {
                   </td>
                   <td className="px-4 py-3 font-body font-bold" style={{ fontSize: 14, color: statusColor(status), letterSpacing: '-0.5px' }}>
                     {item.quantity}
+                  </td>
+                  <td className="px-4 py-3 font-body" style={{ fontSize: 14, color: 'var(--muted-text)' }}>
+                    {item.location ? (
+                      <span className="px-2 py-0.5 rounded-full font-body" style={{ fontSize: 11, background: 'rgba(13,27,110,0.12)', color: '#0d1b6e', border: '1px solid rgba(13,27,110,0.2)' }}>
+                        {item.location}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--muted-text)', opacity: 0.4 }}>—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3"><StatusBadge status={status} /></td>
                   <td className="px-4 py-3 font-body" style={{ fontSize: 14, color: 'var(--muted-text)' }}>

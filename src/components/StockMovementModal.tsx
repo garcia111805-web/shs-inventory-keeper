@@ -3,11 +3,10 @@ import { useInventory } from '../context/InventoryContext';
 import {
   InventoryItem,
   TransactionType,
-  Department,
-  DEPARTMENTS,
   getStatus,
   getCategoryColor,
 } from '../types';
+import { useDepartments } from '../hooks/useDepartments';
 import ModalOverlay from './ModalOverlay';
 import StatusBadge from './StatusBadge';
 import { Search, ArrowLeftRight } from 'lucide-react';
@@ -26,6 +25,7 @@ const TYPE_CONFIG: { type: TransactionType; label: string; color: string }[] = [
 
 export default function StockMovementModal({ item: prefilledItem, defaultType, onClose }: Props) {
   const { items, addTransaction, showToast } = useInventory();
+  const { departments } = useDepartments();
 
   // Item selection
   const [search, setSearch] = useState('');
@@ -36,7 +36,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
   const [type, setType] = useState<TransactionType>(defaultType || 'restock');
   const [qty, setQty] = useState('');
   const [by, setBy] = useState('');
-  const [department, setDepartment] = useState<Department | ''>('');
+  const [department, setDepartment] = useState('');
   const [returnDate, setReturnDate] = useState('');
   const [notes, setNotes] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 16));
@@ -79,7 +79,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
         qtyChange: type === 'restock' ? qtyNum : -qtyNum,
         newStock,
         by: by.trim(),
-        department: department as Department,
+        department: department as any,
         returnDate: type === 'borrow' ? returnDate : undefined,
         notes,
         date: new Date(date).toISOString(),
@@ -273,12 +273,12 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
           <select
             className={fieldClass(isDeptValid)}
             value={department}
-            onChange={e => setDepartment(e.target.value as Department)}
+            onChange={e => setDepartment(e.target.value)}
           >
             <option value="">Select department…</option>
-            {DEPARTMENTS.map(d => (
-              <option key={d.value} value={d.value}>
-                {d.label}
+            {departments.map(d => (
+              <option key={d.id} value={d.name}>
+                {d.name}
               </option>
             ))}
           </select>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useInventory } from '../context/InventoryContext';
 import { InventoryItem, Category, UNITS } from '../types';
+import { useLocations } from '../hooks/useLocations';
 import ModalOverlay from './ModalOverlay';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 
 export default function AddEditItemModal({ item, defaultCategory, onClose }: Props) {
   const { addItem, updateItem, showToast } = useInventory();
+  const { locations } = useLocations();
   const isEdit = !!item;
 
   const [name, setName] = useState(item?.name || '');
@@ -19,15 +21,33 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
   const [quantity, setQuantity] = useState(item?.quantity?.toString() || '0');
   const [threshold, setThreshold] = useState(item?.lowStockThreshold?.toString() || '3');
   const [notes, setNotes] = useState(item?.notes || '');
+  const [location, setLocation] = useState(item?.location || '');
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
     try {
       if (isEdit && item) {
-        await updateItem({ ...item, name: name.trim(), category, unit, quantity: parseInt(quantity) || 0, lowStockThreshold: parseInt(threshold) || 3, notes });
+        await updateItem({
+          ...item,
+          name: name.trim(),
+          category,
+          unit,
+          quantity: parseInt(quantity) || 0,
+          lowStockThreshold: parseInt(threshold) || 3,
+          notes,
+          location: location || undefined,
+        });
         showToast(`${name} updated`, 'success');
       } else {
-        await addItem({ name: name.trim(), category, unit, quantity: parseInt(quantity) || 0, lowStockThreshold: parseInt(threshold) || 3, notes });
+        await addItem({
+          name: name.trim(),
+          category,
+          unit,
+          quantity: parseInt(quantity) || 0,
+          lowStockThreshold: parseInt(threshold) || 3,
+          notes,
+          location: location || undefined,
+        });
         showToast(`${name} added`, 'success');
       }
       onClose();
@@ -46,13 +66,28 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
           <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Name</label>
           <input className="modal-input" value={name} onChange={e => setName(e.target.value)} />
         </div>
-        <div>
-          <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Category</label>
-          <select className="modal-input" value={category} onChange={e => setCategory(e.target.value as Category)}>
-            <option value="cleaning">Cleaning Materials</option>
-            <option value="office">Office Supplies</option>
-            <option value="clinic">Clinic Supplies</option>
-          </select>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Category</label>
+            <select className="modal-input" value={category} onChange={e => setCategory(e.target.value as Category)}>
+              <option value="cleaning">Cleaning Materials</option>
+              <option value="office">Office Supplies</option>
+              <option value="clinic">Clinic Supplies</option>
+            </select>
+          </div>
+          <div>
+            <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Location</label>
+            <select
+              className="modal-input"
+              value={location}
+              onChange={e => setLocation(e.target.value)}
+            >
+              <option value="">— None —</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.name}>{loc.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>

@@ -1,7 +1,7 @@
 export type Category = 'cleaning' | 'office' | 'clinic';
 export type ItemStatus = 'in-stock' | 'low-stock' | 'out-of-stock';
 export type TransactionType = 'restock' | 'borrow' | 'use';
-export type PageName = 'dashboard' | 'cleaning' | 'office' | 'clinic' | 'transactions' | 'reports';
+export type PageName = 'dashboard' | 'cleaning' | 'office' | 'clinic' | 'transactions' | 'reports' | 'settings';
 export type Department = 'admin' | 'faculty' | 'science' | 'clinic' | 'library';
 
 export const DEPARTMENTS: { value: Department; label: string }[] = [
@@ -23,6 +23,7 @@ export interface InventoryItem {
   lowStockThreshold: number;
   notes: string;
   lastUpdated: string;
+  location?: string;
 }
 
 export interface Transaction {

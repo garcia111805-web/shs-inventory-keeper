@@ -16,6 +16,7 @@ interface ParsedRow {
   quantity: number;
   lowStockThreshold: number;
   notes: string;
+  location?: string;
   isDuplicate?: boolean;
 }
 
@@ -28,6 +29,7 @@ function normalizeHeader(h: string): string {
   if (['quantity', 'qty', 'stock', 'count', 'amount'].includes(s)) return 'quantity';
   if (['threshold', 'lowstock', 'lowstockthreshold', 'minstocklevel', 'reorderlevel', 'low'].includes(s)) return 'threshold';
   if (['notes', 'note', 'remarks', 'comment', 'comments', 'description'].includes(s)) return 'notes';
+  if (['location', 'loc', 'room', 'storage', 'area', 'place', 'cabinet', 'storagetype', 'storagelocation'].includes(s)) return 'location';
   return s;
 }
 
@@ -117,6 +119,7 @@ export default function CSVImportModal({ onClose }: Props) {
               quantity: parseInt(qtyVal) || 0,
               lowStockThreshold: 3,
               notes: '',
+              location: undefined,
               isDuplicate: existingNames.has(name.toLowerCase())
             });
           }
@@ -160,6 +163,7 @@ export default function CSVImportModal({ onClose }: Props) {
     const qtyIdx = mapped.indexOf('quantity');
     const threshIdx = mapped.indexOf('threshold');
     const notesIdx = mapped.indexOf('notes');
+    const locIdx = mapped.indexOf('location');
 
     const existingNames = new Set(items.map(i => i.name.toLowerCase().trim()));
 
@@ -174,6 +178,7 @@ export default function CSVImportModal({ onClose }: Props) {
           quantity: qtyIdx >= 0 ? (parseInt(row[qtyIdx]) || 0) : 0,
           lowStockThreshold: threshIdx >= 0 ? (parseInt(row[threshIdx]) || 3) : 3,
           notes: notesIdx >= 0 ? (row[notesIdx]?.trim() || '') : '',
+          location: locIdx >= 0 ? (row[locIdx]?.trim() || undefined) : undefined,
           isDuplicate: existingNames.has(name.toLowerCase()),
         };
       });
@@ -268,6 +273,7 @@ export default function CSVImportModal({ onClose }: Props) {
           quantity: row.quantity,
           lowStockThreshold: row.lowStockThreshold,
           notes: row.notes,
+          location: row.location || undefined,
         });
         successCount++;
         setImported(successCount);
@@ -314,7 +320,7 @@ export default function CSVImportModal({ onClose }: Props) {
               {fileName || 'Click to select CSV or Excel file'}
             </span>
             <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-              Supports .csv, .xlsx, .xls — Columns: Name (required), Category, Unit, Quantity
+              Supports .csv, .xlsx, .xls — Columns: Name (required), Category, Unit, Quantity, Location
             </span>
             <input
               ref={fileRef}
@@ -347,7 +353,7 @@ export default function CSVImportModal({ onClose }: Props) {
                 <table className="w-full" style={{ fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: 'var(--table-header-bg)' }}>
-                      {['Name', 'Category', 'Unit', 'Qty', 'Threshold'].map(h => (
+                      {['Name', 'Category', 'Unit', 'Qty', 'Threshold', 'Location'].map(h => (
                         <th key={h} className="text-left px-3 py-2 font-body uppercase" style={{ fontSize: 10, color: 'var(--muted-text)', fontWeight: 500 }}>{h}</th>
                       ))}
                     </tr>
@@ -371,11 +377,14 @@ export default function CSVImportModal({ onClose }: Props) {
                         <td className="px-3 py-1.5 font-body" style={{ color: 'var(--muted-text)' }}>{row.unit}</td>
                         <td className="px-3 py-1.5 font-body font-bold" style={{ color: 'var(--fg-color)' }}>{row.quantity}</td>
                         <td className="px-3 py-1.5 font-body" style={{ color: 'var(--muted-text)' }}>{row.lowStockThreshold}</td>
+                        <td className="px-3 py-1.5 font-body" style={{ color: row.location ? '#0d1b6e' : 'var(--muted-text)', fontStyle: row.location ? 'normal' : 'italic' }}>
+                          {row.location || '—'}
+                        </td>
                       </tr>
                     ))}
                     {parsed.length > 8 && (
                       <tr>
-                        <td colSpan={5} className="text-center py-2 font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
+                        <td colSpan={6} className="text-center py-2 font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
                           ...and {parsed.length - 8} more
                         </td>
                       </tr>
