@@ -27,6 +27,9 @@
   --status-out-of-stock-bg: #fee2e2;
   --status-out-of-stock-text: #dc2626;
   --status-out-of-stock-dot: #dc2626;
+  --location-bg: rgba(13,27,110,0.08);
+  --location-text: #0d1b6e;
+  --location-border: rgba(13,27,110,0.15);
 }
 
 .dark {
@@ -54,6 +57,15 @@
   --status-out-of-stock-bg: rgba(248,113,113,0.15);
   --status-out-of-stock-text: #f87171;
   --status-out-of-stock-dot: #f87171;
+  --location-bg: rgba(240,208,128,0.12);
+  --location-text: #f0d080;
+  --location-border: rgba(240,208,128,0.25);
+  color-scheme: dark;
+}
+
+.dark select option {
+  background-color: #1a1f3d;
+  color: #e2e8f0;
 }
 
 * {

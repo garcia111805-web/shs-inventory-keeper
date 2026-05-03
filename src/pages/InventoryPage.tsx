@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useInventory } from '../context/InventoryContext';
+import { useAuth } from '../context/AuthContext';
 import { Category, InventoryItem, getStatus, ItemStatus } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import AddEditItemModal from '../components/AddEditItemModal';
@@ -14,6 +15,8 @@ interface Props {
 
 export default function InventoryPage({ category, onAddItem }: Props) {
   const { items, deleteItem, searchQuery, showToast } = useInventory();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [transactionItem, setTransactionItem] = useState<InventoryItem | null>(null);
@@ -84,20 +87,24 @@ export default function InventoryPage({ category, onAddItem }: Props) {
         </select>
         <div className="hidden sm:flex flex-1" />
         <div className="flex gap-3 w-full sm:w-auto">
-          <button
-            onClick={() => setShowBulkRestock(true)}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl font-body font-semibold text-white"
-            style={{ fontSize: 14, background: '#0d1b6e' }}
-          >
-            Bulk Restock
-          </button>
-          <button
-            onClick={exportCSV}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-body font-semibold"
-            style={{ fontSize: 14, background: 'transparent', border: '1px solid var(--card-border)', color: 'var(--fg-color)' }}
-          >
-            <Download size={14} /> Export CSV
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setShowBulkRestock(true)}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl font-body font-semibold text-white"
+              style={{ fontSize: 14, background: '#0d1b6e' }}
+            >
+              Bulk Restock
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={exportCSV}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-body font-semibold"
+              style={{ fontSize: 14, background: 'transparent', border: '1px solid var(--card-border)', color: 'var(--fg-color)' }}
+            >
+              <Download size={14} /> Export CSV
+            </button>
+          )}
         </div>
       </div>
 
@@ -145,7 +152,7 @@ export default function InventoryPage({ category, onAddItem }: Props) {
                   </td>
                   <td className="px-4 py-3 font-body" style={{ fontSize: 14, color: 'var(--muted-text)' }}>
                     {item.location ? (
-                      <span className="px-2 py-0.5 rounded-full font-body" style={{ fontSize: 11, background: 'rgba(13,27,110,0.12)', color: '#0d1b6e', border: '1px solid rgba(13,27,110,0.2)' }}>
+                      <span className="px-2 py-0.5 rounded-full font-body" style={{ fontSize: 11, background: 'var(--location-bg)', color: 'var(--location-text)', border: '1px solid var(--location-border)' }}>
                         {item.location}
                       </span>
                     ) : (
@@ -159,10 +166,10 @@ export default function InventoryPage({ category, onAddItem }: Props) {
                   <td className="px-4 py-3">
                     <div className="flex gap-1.5">
                       {[
-                        { color: '#e8b400', icon: <Plus size={14} color="white" />, tip: 'Restock / Use / Borrow', onClick: () => setTransactionItem(item) },
-                        { color: '#0d1b6e', icon: <Pencil size={14} color="white" />, tip: 'Edit item', onClick: () => setEditingItem(item) },
-                        { color: '#b71c1c', icon: <Trash2 size={14} color="white" />, tip: 'Delete item', onClick: () => handleDelete(item) },
-                      ].map((btn, i) => (
+                        { color: '#7c3aed', icon: <Plus size={14} color="white" />, tip: isAdmin ? 'Restock / Use / Borrow' : 'Borrow item', onClick: () => setTransactionItem(item), show: true },
+                        { color: '#0d1b6e', icon: <Pencil size={14} color="white" />, tip: 'Edit item', onClick: () => setEditingItem(item), show: isAdmin },
+                        { color: '#b71c1c', icon: <Trash2 size={14} color="white" />, tip: 'Delete item', onClick: () => handleDelete(item), show: isAdmin },
+                      ].filter(b => b.show).map((btn, i) => (
                         <div key={i} className="relative group">
                           <button
                             onClick={btn.onClick}
@@ -197,7 +204,13 @@ export default function InventoryPage({ category, onAddItem }: Props) {
       )}
 
       {editingItem && <AddEditItemModal item={editingItem} onClose={() => setEditingItem(null)} />}
-      {transactionItem && <StockMovementModal item={transactionItem} onClose={() => setTransactionItem(null)} />}
+      {transactionItem && (
+        <StockMovementModal
+          item={transactionItem}
+          defaultType={isAdmin ? 'restock' : 'borrow'}
+          onClose={() => setTransactionItem(null)}
+        />
+      )}
       {showBulkRestock && <BulkRestockModal category={category} onClose={() => setShowBulkRestock(false)} />}
     </div>
   );

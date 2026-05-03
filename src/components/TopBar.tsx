@@ -178,7 +178,7 @@ export default function TopBar({ onToggleSidebar, onQuickAction, onItemSelect, o
           <button
             onClick={onImportCSV}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
-            style={{ fontSize: 13, background: 'transparent', border: '1.5px solid #0d1b6e', color: '#0d1b6e' }}
+            style={{ fontSize: 13, background: 'transparent', border: '1.5px solid var(--location-text)', color: 'var(--location-text)' }}
             title="Import inventory from CSV"
           >
             <Upload size={15} />

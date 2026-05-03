@@ -379,8 +379,8 @@ export default function Reports() {
                     </h3>
                     <span className="font-body font-semibold px-2 py-0.5 rounded" style={{
                       fontSize: 10,
-                      background: card.format === 'CSV' ? 'rgba(21,128,61,0.12)' : 'rgba(13,27,110,0.10)',
-                      color: card.format === 'CSV' ? '#15803d' : '#0d1b6e',
+                      background: card.format === 'CSV' ? 'rgba(21,128,61,0.12)' : 'var(--location-bg)',
+                      color: card.format === 'CSV' ? '#15803d' : 'var(--location-text)',
                     }}>
                       {card.format}
                     </span>
@@ -451,8 +451,8 @@ export default function Reports() {
                   <td className="py-2.5">
                     <span className="font-body font-semibold px-2 py-0.5 rounded" style={{
                       fontSize: 10,
-                      background: rec.type === 'CSV' ? 'rgba(21,128,61,0.12)' : 'rgba(13,27,110,0.10)',
-                      color: rec.type === 'CSV' ? '#15803d' : '#0d1b6e',
+                      background: rec.type === 'CSV' ? 'rgba(21,128,61,0.12)' : 'var(--location-bg)',
+                      color: rec.type === 'CSV' ? '#15803d' : 'var(--location-text)',
                     }}>
                       {rec.type}
                     </span>

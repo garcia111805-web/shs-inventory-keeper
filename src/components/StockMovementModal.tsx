@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useInventory } from '../context/InventoryContext';
+import { useAuth } from '../context/AuthContext';
 import {
   InventoryItem,
   TransactionType,
@@ -25,7 +26,13 @@ const TYPE_CONFIG: { type: TransactionType; label: string; color: string }[] = [
 
 export default function StockMovementModal({ item: prefilledItem, defaultType, onClose }: Props) {
   const { items, addTransaction, showToast } = useInventory();
+  const { role } = useAuth();
   const { departments } = useDepartments();
+
+  const isAdmin = role === 'admin';
+  const availableTypes = isAdmin 
+    ? TYPE_CONFIG 
+    : TYPE_CONFIG.filter(tc => tc.type === 'borrow');
 
   // Item selection
   const [search, setSearch] = useState('');
@@ -124,7 +131,8 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
               style={{ color: 'var(--muted-text)' }}
             />
             <input
-              className="modal-input pl-8"
+              className="modal-input"
+              style={{ paddingLeft: '2.75rem' }}
               value={search}
               onChange={e => {
                 setSearch(e.target.value);
@@ -203,30 +211,32 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
               </button>
             )}
           </div>
-          <div className="font-body font-bold mt-1" style={{ fontSize: 14, color: activeColor }}>
+          <div className="font-body font-bold mt-1" style={{ fontSize: 14, color: selectedItem.quantity === 0 ? '#b91c1c' : selectedItem.quantity <= selectedItem.lowStockThreshold ? '#d97706' : '#15803d' }}>
             Current: {selectedItem.quantity} {selectedItem.unit}
           </div>
         </div>
       )}
 
       {/* Type selector pills */}
-      <div className="flex gap-2 mb-4">
-        {TYPE_CONFIG.map(tc => (
-          <button
-            key={tc.type}
-            onClick={() => setType(tc.type)}
-            className="flex-1 py-2 rounded-xl font-body font-semibold transition-all"
-            style={{
-              fontSize: 13,
-              background: type === tc.type ? tc.color : 'var(--input-bg)',
-              color: type === tc.type ? 'white' : 'var(--fg-color)',
-              border: `1px solid ${type === tc.type ? tc.color : 'var(--card-border)'}`,
-            }}
-          >
-            {tc.label}
-          </button>
-        ))}
-      </div>
+      {availableTypes.length > 1 && (
+        <div className="flex gap-2 mb-4">
+          {availableTypes.map(tc => (
+            <button
+              key={tc.type}
+              onClick={() => setType(tc.type)}
+              className="flex-1 py-2 rounded-xl font-body font-semibold transition-all"
+              style={{
+                fontSize: 13,
+                background: type === tc.type ? tc.color : 'var(--input-bg)',
+                color: type === tc.type ? 'white' : 'var(--fg-color)',
+                border: `1px solid ${type === tc.type ? tc.color : 'var(--card-border)'}`,
+              }}
+            >
+              {tc.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Form fields */}
       <div className="space-y-3">
@@ -289,7 +299,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
             className="font-body text-xs mb-1 block"
             style={{ color: 'var(--muted-text)' }}
           >
-            Staff Member Requesting <span style={{ color: '#b91c1c' }}>*</span>
+            Staff Member {type === 'borrow' ? 'Borrowing' : type === 'restock' ? 'Restocking' : 'Using'} <span style={{ color: '#b91c1c' }}>*</span>
           </label>
           <input
             className={fieldClass(isByValid)}

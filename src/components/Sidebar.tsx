@@ -68,7 +68,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
       {/* Logo area */}
       <div className="flex flex-col items-center py-5 px-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
         <img
-          src="/images/sshs-logo.jpg"
+          src="/images/349022250_260267146537592_5468556789585259072_n-removebg-preview.png"
           alt="SSHS Logo"
           className="rounded-full"
           style={{

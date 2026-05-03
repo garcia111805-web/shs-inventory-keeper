@@ -77,7 +77,7 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 }
 
 export default function CSVImportModal({ onClose }: Props) {
-  const { items, addItem, showToast } = useInventory();
+  const { items, addItem, updateItem, showToast } = useInventory();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [parsed, setParsed] = useState<ParsedRow[]>([]);
@@ -85,9 +85,11 @@ export default function CSVImportModal({ onClose }: Props) {
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState(0);
+  const [updated, setUpdated] = useState(0);
   const [skipped, setSkipped] = useState(0);
   const [failed, setFailed] = useState(0);
   const [done, setDone] = useState(false);
+  const [updateMode, setUpdateMode] = useState(true);
 
   // Scan all rows to find the header row (the one with a 'Name' column)
   const processAllRows = (allRows: string[][]) => {
@@ -248,21 +250,49 @@ export default function CSVImportModal({ onClose }: Props) {
 
   const newItems = parsed.filter(r => !r.isDuplicate);
   const duplicateCount = parsed.filter(r => r.isDuplicate).length;
+  const totalToProcess = updateMode ? parsed.length : newItems.length;
 
   const handleImport = async () => {
     setImporting(true);
     setImported(0);
+    setUpdated(0);
     setSkipped(0);
     setFailed(0);
 
     let successCount = 0;
+    let updateCount = 0;
     let skipCount = 0;
     let failCount = 0;
 
     for (const row of parsed) {
       if (row.isDuplicate) {
-        skipCount++;
-        setSkipped(skipCount);
+        if (updateMode) {
+          // Find the existing item by name (case-insensitive)
+          const existing = items.find(
+            i => i.name.toLowerCase().trim() === row.name.toLowerCase().trim()
+          );
+          if (existing) {
+            try {
+              await updateItem({
+                ...existing,
+                category: row.category,
+                unit: row.unit,
+                quantity: row.quantity,
+                lowStockThreshold: row.lowStockThreshold,
+                notes: row.notes || existing.notes,
+                location: row.location || existing.location,
+              });
+              updateCount++;
+              setUpdated(updateCount);
+            } catch {
+              failCount++;
+              setFailed(failCount);
+            }
+          }
+        } else {
+          skipCount++;
+          setSkipped(skipCount);
+        }
         continue;
       }
       try {
@@ -285,10 +315,12 @@ export default function CSVImportModal({ onClose }: Props) {
 
     setImporting(false);
     setDone(true);
-    const parts: string[] = [`${successCount} imported`];
-    if (skipCount > 0) parts.push(`${skipCount} duplicates skipped`);
+    const parts: string[] = [];
+    if (successCount > 0) parts.push(`${successCount} added`);
+    if (updateCount > 0) parts.push(`${updateCount} updated`);
+    if (skipCount > 0) parts.push(`${skipCount} skipped`);
     if (failCount > 0) parts.push(`${failCount} failed`);
-    showToast(parts.join(' · '), failCount > 0 ? 'warning' : 'success');
+    showToast(parts.join(' · ') || 'Nothing to import', failCount > 0 ? 'warning' : 'success');
   };
 
   const catColors: Record<string, string> = { cleaning: '#0d1b6e', office: '#d97706', clinic: '#b91c1c' };
@@ -338,12 +370,47 @@ export default function CSVImportModal({ onClose }: Props) {
             </div>
           )}
 
+          {/* Update mode toggle */}
+          {parsed.length > 0 && duplicateCount > 0 && (
+            <div
+              className="flex items-center gap-3 mt-3 p-3 rounded-xl cursor-pointer select-none"
+              style={{ background: updateMode ? 'rgba(13,27,110,0.08)' : 'var(--input-bg)', border: `1px solid ${updateMode ? 'rgba(13,27,110,0.25)' : 'var(--card-border)'}`, transition: 'all 0.2s' }}
+              onClick={() => setUpdateMode(m => !m)}
+            >
+              {/* Toggle pill */}
+              <div
+                className="relative flex-shrink-0 rounded-full transition-all"
+                style={{ width: 36, height: 20, background: updateMode ? '#0d1b6e' : 'var(--card-border)', transition: 'background 0.2s' }}
+              >
+                <div
+                  className="absolute top-1 rounded-full bg-white transition-all"
+                  style={{ width: 12, height: 12, left: updateMode ? 20 : 4, transition: 'left 0.2s' }}
+                />
+              </div>
+              <div>
+                <p className="font-body font-semibold" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
+                  Update existing items
+                </p>
+                <p className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
+                  {updateMode
+                    ? `${duplicateCount} existing item(s) will be updated with data from file`
+                    : `${duplicateCount} duplicate(s) will be skipped`}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Preview table */}
           {parsed.length > 0 && (
             <div className="mt-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-body font-semibold" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
-                  Preview — {newItems.length} new{duplicateCount > 0 && <span style={{ color: '#d97706' }}> · {duplicateCount} duplicates</span>}
+                  Preview — {newItems.length} new
+                  {duplicateCount > 0 && (
+                    <span style={{ color: updateMode ? '#0d1b6e' : '#d97706' }}>
+                      {' · '}{duplicateCount} {updateMode ? 'will update' : 'will skip'}
+                    </span>
+                  )}
                 </span>
                 <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
                   Showing first {Math.min(parsed.length, 8)}
@@ -362,12 +429,25 @@ export default function CSVImportModal({ onClose }: Props) {
                     {parsed.slice(0, 8).map((row, idx) => (
                       <tr key={idx} style={{
                         borderBottom: '1px solid var(--card-border)',
-                        opacity: row.isDuplicate ? 0.5 : 1,
-                        background: row.isDuplicate ? 'rgba(217,119,6,0.08)' : undefined,
+                        opacity: row.isDuplicate && !updateMode ? 0.45 : 1,
+                        background: row.isDuplicate
+                          ? updateMode ? 'rgba(13,27,110,0.06)' : 'rgba(217,119,6,0.08)'
+                          : undefined,
                       }}>
                         <td className="px-3 py-1.5 font-body font-semibold" style={{ color: 'var(--fg-color)' }}>
                           {row.name}
-                          {row.isDuplicate && <span className="font-body ml-1.5 px-1.5 py-0.5 rounded" style={{ fontSize: 9, background: 'rgba(217,119,6,0.15)', color: '#d97706' }}>duplicate</span>}
+                          {row.isDuplicate && (
+                            <span
+                              className="font-body ml-1.5 px-1.5 py-0.5 rounded"
+                              style={{
+                                fontSize: 9,
+                                background: updateMode ? 'rgba(13,27,110,0.15)' : 'rgba(217,119,6,0.15)',
+                                color: updateMode ? '#0d1b6e' : '#d97706',
+                              }}
+                            >
+                              {updateMode ? 'will update' : 'skip'}
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-1.5">
                           <span className="font-body font-semibold px-1.5 py-0.5 rounded text-white" style={{ fontSize: 10, background: catColors[row.category] || '#666' }}>
@@ -414,16 +494,18 @@ export default function CSVImportModal({ onClose }: Props) {
           {/* Actions */}
           <div className="flex justify-end gap-2 mt-5">
             <button className="modal-btn-cancel" onClick={onClose}>Cancel</button>
-            {parsed.length > 0 && !importing && newItems.length > 0 && (
+            {parsed.length > 0 && !importing && totalToProcess > 0 && (
               <button
                 onClick={handleImport}
                 className="px-4 py-2 rounded-xl font-body font-semibold transition-all hover:opacity-90"
                 style={{ fontSize: 14, background: '#15803d', color: 'white', border: 'none', cursor: 'pointer' }}
               >
                 {importing ? (
-                  <><Loader2 size={16} className="animate-spin" /> Importing...</>
+                  <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                ) : updateMode ? (
+                  `Apply to ${totalToProcess} Item${totalToProcess !== 1 ? 's' : ''}`
                 ) : (
-                  `Import ${newItems.length} New Items`
+                  `Import ${newItems.length} New Item${newItems.length !== 1 ? 's' : ''}`
                 )}
               </button>
             )}
@@ -434,12 +516,13 @@ export default function CSVImportModal({ onClose }: Props) {
         <div className="flex flex-col items-center py-6 gap-3">
           <CheckCircle size={48} color="#15803d" />
           <h4 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>
-            Import Complete!
+            Done!
           </h4>
           <p className="font-body text-center" style={{ fontSize: 13, color: 'var(--muted-text)', lineHeight: 1.6 }}>
-            <strong style={{ color: 'var(--fg-color)' }}>{imported}</strong> items imported successfully
-            {skipped > 0 && <><br /><span style={{ color: '#d97706' }}>{skipped} duplicates skipped</span></>}
-            {failed > 0 && <><br /><span style={{ color: '#b91c1c' }}>{failed} items failed</span></>}
+            {imported > 0 && <><strong style={{ color: 'var(--fg-color)' }}>{imported}</strong> new items added<br /></>}
+            {updated > 0 && <><strong style={{ color: '#0d1b6e' }}>{updated}</strong> existing items updated<br /></>}
+            {skipped > 0 && <><span style={{ color: '#d97706' }}>{skipped} duplicates skipped</span><br /></>}
+            {failed > 0 && <><span style={{ color: '#b91c1c' }}>{failed} items failed</span></>}
           </p>
           <button
             onClick={onClose}
