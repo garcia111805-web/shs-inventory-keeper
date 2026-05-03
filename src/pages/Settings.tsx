@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useLocations } from '../hooks/useLocations';
-import { useDepartments } from '../hooks/useDepartments';
 import { useInventory } from '../context/InventoryContext';
-import { MapPin, Building2, Plus, Pencil, Trash2, Check, X, Settings, Loader2 } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Check, X, Settings, Loader2 } from 'lucide-react';
 
 // ─── Reusable Row Editor ─────────────────────────────────────────────────────
 interface EntryRowProps {
@@ -93,12 +92,9 @@ function EntryRow({ id, name, onEdit, onDelete }: EntryRowProps) {
 export default function SettingsPage() {
   const { showToast } = useInventory();
   const { locations, loading: locLoading, addLocation, updateLocation, deleteLocation } = useLocations();
-  const { departments, loading: deptLoading, addDepartment, updateDepartment, deleteDepartment } = useDepartments();
 
   const [newLocation, setNewLocation] = useState('');
   const [addingLoc, setAddingLoc] = useState(false);
-  const [newDept, setNewDept] = useState('');
-  const [addingDept, setAddingDept] = useState(false);
 
   const handleAddLocation = async () => {
     if (!newLocation.trim()) return;
@@ -132,37 +128,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAddDept = async () => {
-    if (!newDept.trim()) return;
-    setAddingDept(true);
-    try {
-      await addDepartment(newDept.trim());
-      setNewDept('');
-      showToast(`Department "${newDept.trim()}" added`, 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to add department', 'error');
-    } finally {
-      setAddingDept(false);
-    }
-  };
 
-  const handleEditDept = async (id: string, name: string) => {
-    try {
-      await updateDepartment(id, name);
-      showToast('Department updated', 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to update department', 'error');
-    }
-  };
-
-  const handleDeleteDept = async (id: string) => {
-    try {
-      await deleteDepartment(id);
-      showToast('Department deleted', 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to delete department', 'error');
-    }
-  };
 
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-3xl mx-auto">
@@ -176,12 +142,10 @@ export default function SettingsPage() {
         </div>
         <div>
           <h1 className="font-heading font-bold" style={{ fontSize: 24, color: 'var(--heading-color)' }}>Settings</h1>
-          <p className="font-body" style={{ fontSize: 14, color: 'var(--muted-text)' }}>Manage Locations and Departments</p>
+          <p className="font-body" style={{ fontSize: 14, color: 'var(--muted-text)' }}>Manage Locations</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* ── Locations Panel ── */}
         <section
           className="rounded-2xl panel-card p-6 space-y-4"
         >
@@ -237,64 +201,6 @@ export default function SettingsPage() {
             ))}
           </div>
         </section>
-
-        {/* ── Departments Panel ── */}
-        <section
-          className="rounded-2xl panel-card p-6 space-y-4"
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <Building2 size={18} style={{ color: '#7c3aed' }} />
-            <h2 className="font-heading font-bold" style={{ fontSize: 16, color: 'var(--heading-color)' }}>Departments</h2>
-            <span
-              className="ml-auto font-body font-bold rounded-full px-2.5 py-0.5"
-              style={{ fontSize: 12, background: 'rgba(124,58,237,0.12)', color: '#7c3aed' }}
-            >
-              {departments.length}
-            </span>
-          </div>
-
-          {/* Add new */}
-          <div className="flex gap-2">
-            <input
-              className="modal-input flex-1"
-              placeholder="New department name…"
-              value={newDept}
-              onChange={e => setNewDept(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddDept()}
-            />
-            <button
-              onClick={handleAddDept}
-              disabled={!newDept.trim() || addingDept}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-body font-semibold text-white transition-opacity"
-              style={{ fontSize: 13, background: '#7c3aed', opacity: !newDept.trim() || addingDept ? 0.6 : 1 }}
-            >
-              {addingDept ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              Add
-            </button>
-          </div>
-
-          {/* List */}
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-            {deptLoading ? (
-              <div className="flex justify-center py-6">
-                <Loader2 size={24} className="animate-spin" style={{ color: 'var(--muted-text)' }} />
-              </div>
-            ) : departments.length === 0 ? (
-              <p className="text-center py-6 font-body" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
-                No departments yet. Add one above.
-              </p>
-            ) : departments.map(dept => (
-              <EntryRow
-                key={dept.id}
-                id={dept.id}
-                name={dept.name}
-                onEdit={handleEditDept}
-                onDelete={handleDeleteDept}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
     </div>
   );
 }

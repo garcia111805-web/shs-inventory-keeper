@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth, UserRole } from '../context/AuthContext';
-import { ShieldCheck, Handshake, Lock, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Handshake, Lock, ArrowRight, CornerDownLeft } from 'lucide-react';
 
 export default function LoginGateway() {
   const { login } = useAuth();
@@ -8,10 +8,12 @@ export default function LoginGateway() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
+  const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
 
   const ADMIN_PIN = '1234';
 
   const handleAdminClick = () => {
+    setPendingRole('admin');
     setMode('pin');
     setPin('');
     setError('');
@@ -19,8 +21,9 @@ export default function LoginGateway() {
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === ADMIN_PIN) {
-      login('admin');
+    const correctPin = pendingRole === 'admin' ? '1234' : '4321';
+    if (pin === correctPin) {
+      login(pendingRole!);
     } else {
       setError('Incorrect PIN');
       setShake(true);
@@ -30,7 +33,10 @@ export default function LoginGateway() {
   };
 
   const handleBorrowerClick = () => {
-    login('borrower');
+    setPendingRole('borrower');
+    setMode('pin');
+    setPin('');
+    setError('');
   };
 
   return (
@@ -104,10 +110,10 @@ export default function LoginGateway() {
               </div>
               <div className="flex-1 text-left">
                 <div className="font-body font-bold" style={{ fontSize: 16, color: 'white' }}>
-                  Borrower / Staff
+                  Borrow / Return Items
                 </div>
                 <div className="font-body" style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                  Search items & submit borrow requests
+                  Borrow new items or return active borrows
                 </div>
               </div>
               <ArrowRight size={20} color="rgba(255,255,255,0.3)" />
@@ -125,11 +131,13 @@ export default function LoginGateway() {
               }}
             >
               <div className="flex items-center gap-3 mb-5">
-                <div className="rounded-xl flex items-center justify-center" style={{ width: 40, height: 40, background: '#0d1b6e' }}>
-                  <Lock size={20} color="#e8b400" />
+                <div className="rounded-xl flex items-center justify-center" style={{ width: 40, height: 40, background: pendingRole === 'admin' ? '#0d1b6e' : '#7c3aed' }}>
+                  <Lock size={20} color={pendingRole === 'admin' ? '#e8b400' : 'white'} />
                 </div>
                 <div>
-                  <div className="font-body font-bold" style={{ fontSize: 15, color: 'white' }}>Admin Login</div>
+                  <div className="font-body font-bold" style={{ fontSize: 15, color: 'white' }}>
+                    {pendingRole === 'admin' ? 'Admin Login' : 'Staff Login'}
+                  </div>
                   <div className="font-body" style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Enter your 4-digit PIN</div>
                 </div>
               </div>
@@ -174,8 +182,10 @@ export default function LoginGateway() {
                 className="flex-1 py-3 rounded-xl font-body font-bold transition-opacity hover:opacity-90"
                 style={{
                   fontSize: 14,
-                  background: pin.length === 4 ? '#e8b400' : 'rgba(232,180,0,0.3)',
-                  color: '#0d1b6e',
+                  background: pin.length === 4 
+                    ? (pendingRole === 'admin' ? '#e8b400' : '#7c3aed') 
+                    : 'rgba(255,255,255,0.15)',
+                  color: pendingRole === 'admin' ? '#0d1b6e' : 'white',
                   border: 'none',
                   cursor: pin.length === 4 ? 'pointer' : 'not-allowed',
                 }}

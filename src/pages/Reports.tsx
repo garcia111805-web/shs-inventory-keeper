@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useInventory } from '../context/InventoryContext';
-import { getStatus, getCategoryLabel, DEPARTMENTS } from '../types';
+import { getStatus, getCategoryLabel } from '../types';
 import { FileText, FileSpreadsheet, ClipboardList, Download, CheckCircle, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -185,12 +185,8 @@ export default function Reports() {
     addToHistory('Monthly Inventory Audit', 'PDF');
   };
 
-  // ─── CSV: Full Transaction Ledger ───
   const generateLedgerCSV = () => {
-    const deptMap: Record<string, string> = {};
-    DEPARTMENTS.forEach(d => { deptMap[d.value] = d.label; });
-
-    const headers = ['Date', 'Type', 'Item Name', 'Category', 'Qty Change', 'New Stock', 'By', 'Department', 'Return Date', 'Notes'];
+    const headers = ['Date', 'Type', 'Item Name', 'Category', 'Qty Change', 'New Stock', 'By', 'Return Date', 'Notes'];
     const rows = transactions.map(tx => [
       new Date(tx.date).toLocaleString(),
       tx.type.charAt(0).toUpperCase() + tx.type.slice(1),
@@ -199,7 +195,6 @@ export default function Reports() {
       String(tx.qtyChange),
       String(tx.newStock),
       tx.by,
-      tx.department ? (deptMap[tx.department] || tx.department) : '',
       tx.returnDate || '',
       tx.notes || '',
     ]);
@@ -231,9 +226,6 @@ export default function Reports() {
     const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-    const deptMap: Record<string, string> = {};
-    DEPARTMENTS.forEach(d => { deptMap[d.value] = d.label; });
-
     const borrowedTx = transactions.filter(tx => tx.type === 'borrow');
 
     // Header
@@ -253,7 +245,7 @@ export default function Reports() {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(13, 27, 110);
     doc.text('I. BORROWED ASSETS SUMMARY', m, y); y += 5;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
-    doc.text('All items currently checked out from school inventory for department or staff use.', m, y + 3); y += 10;
+    doc.text('All items currently checked out from school inventory for staff use.', m, y + 3); y += 10;
 
     if (borrowedTx.length === 0) {
       doc.setFont('helvetica', 'italic'); doc.setFontSize(11); doc.setTextColor(21, 128, 61);
@@ -262,14 +254,13 @@ export default function Reports() {
     } else {
       autoTable(doc, {
         startY: y, margin: { left: m, right: m },
-        head: [['#', 'Item', 'Category', 'Qty', 'Borrowed By', 'Department', 'Borrow Date', 'Return Date']],
+        head: [['#', 'Item', 'Category', 'Qty', 'Borrowed By', 'Borrow Date', 'Return Date']],
         body: borrowedTx.map((tx, idx) => [
           String(idx + 1),
           tx.itemName,
           getCategoryLabel(tx.category),
           String(Math.abs(tx.qtyChange)),
           tx.by,
-          tx.department ? (deptMap[tx.department] || tx.department) : '—',
           new Date(tx.date).toLocaleDateString(),
           tx.returnDate ? new Date(tx.returnDate).toLocaleDateString() : 'Not specified',
         ]),
@@ -278,7 +269,7 @@ export default function Reports() {
         alternateRowStyles: { fillColor: [245, 243, 255] },
         columnStyles: { 0: { cellWidth: 8, halign: 'center' } },
         didParseCell: (data: any) => {
-          if (data.section === 'body' && data.column.index === 7) {
+          if (data.section === 'body' && data.column.index === 6) {
             if (data.cell.raw === 'Not specified') {
               data.cell.styles.textColor = [185, 28, 28];
               data.cell.styles.fontStyle = 'italic';

@@ -16,6 +16,9 @@ interface InventoryContextType {
   updateItem: (item: InventoryItem) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   addTransaction: (tx: Omit<Transaction, 'id'>) => Promise<void>;
+  updateTransaction: (tx: Transaction) => Promise<void>;
+  voidTransaction: (tx: Transaction) => Promise<void>;
+  refreshData: () => Promise<void>;
   showToast: (msg: string, type?: 'success' | 'error' | 'warning') => void;
   toasts: ToastItem[];
 }
@@ -67,7 +70,6 @@ function mapTransaction(row: any): Transaction {
     qtyChange: row.qty_change ?? row.qtyChange ?? 0,
     newStock: row.new_stock ?? row.newStock ?? 0,
     by: row.by || row.staff_name || '',
-    department: row.department || undefined,
     returnDate: row.return_date || row.returnDate || undefined,
     notes: row.notes || '',
     date: row.date || row.created_at || new Date().toISOString(),
@@ -83,28 +85,37 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const refreshData = useCallback(async () => {
+    try {
+      const [itemsRes, txRes] = await Promise.all([
+        supabase.from('items').select('*').order('name'),
+        supabase.from('transactions').select('*').order('created_at', { ascending: false }),
+      ]);
+
+      if (itemsRes.data) setItems(itemsRes.data.map(mapItem));
+      if (txRes.data) setTransactions(txRes.data.map(mapTransaction));
+      if (itemsRes.error) throw itemsRes.error;
+      if (txRes.error) throw txRes.error;
+    } catch (err) {
+      console.error('Fetch error:', err);
+      throw err;
+    }
+  }, []);
+
   // ─── Initial fetch ───
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [itemsRes, txRes] = await Promise.all([
-          supabase.from('items').select('*').order('name'),
-          supabase.from('transactions').select('*').order('created_at', { ascending: false }),
-        ]);
-
-        if (itemsRes.data) setItems(itemsRes.data.map(mapItem));
-        if (txRes.data) setTransactions(txRes.data.map(mapTransaction));
-        if (itemsRes.error) console.error('Items fetch error:', itemsRes.error);
-        if (txRes.error) console.error('Transactions fetch error:', txRes.error);
+        await refreshData();
       } catch (err) {
-        console.error('Fetch error:', err);
+        // Error handled in refreshData
       } finally {
         setLoading(false);
       }
     };
     fetchAll();
-  }, []);
+  }, [refreshData]);
 
   // ─── Realtime subscriptions ───
   useEffect(() => {
@@ -122,6 +133,10 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setTransactions(prev => [mapTransaction(payload.new), ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setTransactions(prev => prev.map(t => t.id === payload.new.id ? mapTransaction(payload.new) : t));
+        } else if (payload.eventType === 'DELETE') {
+          setTransactions(prev => prev.filter(t => t.id !== payload.old.id));
         }
       })
       .subscribe();
@@ -184,6 +199,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addTransaction = useCallback(async (tx: Omit<Transaction, 'id'>) => {
+    if (tx.newStock < 0) {
+      throw new Error(`Insufficient stock for ${tx.itemName}. Operation cancelled.`);
+    }
     // 1. Update item quantity
     const { error: updateErr } = await supabase
       .from('items')
@@ -207,7 +225,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       qty_change: tx.qtyChange,
       new_stock: tx.newStock,
       staff_name: tx.by,
-      department: tx.department || null,
       return_date: tx.returnDate || null,
       notes: tx.notes || '',
       date: tx.date,
@@ -220,6 +237,54 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     // Realtime handles UI updates
   }, []);
 
+  const updateTransaction = useCallback(async (updated: Transaction) => {
+    const { error } = await supabase.from('transactions').update({
+      staff_name: updated.by,
+      return_date: updated.returnDate || null,
+      notes: updated.notes || '',
+    }).eq('id', updated.id);
+
+    if (error) {
+      console.error('Update transaction error:', error);
+      throw error;
+    }
+  }, []);
+
+  const voidTransaction = useCallback(async (tx: Transaction) => {
+    // 1. Fetch current stock to revert accurately
+    const { data: item, error: fetchErr } = await supabase.from('items').select('quantity').eq('id', tx.itemId).single();
+    if (fetchErr || !item) {
+      console.error('Fetch item error:', fetchErr);
+      throw new Error("Item not found or deleted");
+    }
+
+    const revertedStock = item.quantity - tx.qtyChange;
+
+    const { error: updateErr } = await supabase
+      .from('items')
+      .update({
+        quantity: revertedStock,
+        last_updated: new Date().toISOString().split('T')[0],
+      })
+      .eq('id', tx.itemId);
+
+    if (updateErr) {
+      console.error('Revert stock error:', updateErr);
+      throw updateErr;
+    }
+
+    // 2. Delete transaction record
+    const { error: txErr } = await supabase.from('transactions').delete().eq('id', tx.id);
+
+    if (txErr) {
+      console.error('Delete transaction error:', txErr);
+      throw txErr;
+    }
+
+    // 3. Instantly remove from local UI to feel responsive
+    setTransactions(prev => prev.filter(t => t.id !== tx.id));
+  }, []);
+
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' = 'success') => {
     const id = `toast-${Date.now()}`;
     setToasts(prev => [...prev, { id, message, type }]);
@@ -230,7 +295,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     <InventoryContext.Provider value={{
       items, transactions, currentPage, searchQuery, darkMode, loading,
       setCurrentPage, setSearchQuery, toggleDarkMode,
-      addItem, updateItem, deleteItem, addTransaction, showToast, toasts,
+      addItem, updateItem, deleteItem, addTransaction, updateTransaction, voidTransaction, refreshData, showToast, toasts,
     }}>
       {children}
     </InventoryContext.Provider>

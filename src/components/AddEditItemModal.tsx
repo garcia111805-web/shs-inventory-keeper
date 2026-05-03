@@ -22,9 +22,16 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
   const [threshold, setThreshold] = useState(item?.lowStockThreshold?.toString() || '3');
   const [notes, setNotes] = useState(item?.notes || '');
   const [location, setLocation] = useState(item?.location || '');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || loading) return;
+    const qtyVal = parseInt(quantity) || 0;
+    if (qtyVal < 0) {
+      showToast('Quantity cannot be negative', 'warning');
+      return;
+    }
+    setLoading(true);
     try {
       if (isEdit && item) {
         await updateItem({
@@ -53,6 +60,7 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
       onClose();
     } catch (err: any) {
       showToast(err?.message || 'Operation failed', 'error');
+      setLoading(false);
     }
   };
 
@@ -117,8 +125,8 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
       </div>
       <div className="flex justify-end gap-2 mt-5">
         <button className="modal-btn-cancel" onClick={onClose}>Cancel</button>
-        <button className="modal-btn-confirm" onClick={handleSubmit} disabled={!name.trim()}>
-          {isEdit ? 'Save Changes' : 'Add Item'}
+        <button className="modal-btn-confirm" onClick={handleSubmit} disabled={!name.trim() || loading}>
+          {loading ? 'Processing...' : isEdit ? 'Save Changes' : 'Add Item'}
         </button>
       </div>
     </ModalOverlay>

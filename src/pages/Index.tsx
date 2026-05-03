@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useInventory } from '../context/InventoryContext';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
@@ -9,6 +9,7 @@ import InventoryPage from './InventoryPage';
 import TransactionLog from './TransactionLog';
 import Reports from './Reports';
 import SettingsPage from './Settings';
+import SelfServicePortal from '../components/SelfServicePortal';
 import AddEditItemModal from '../components/AddEditItemModal';
 import StockMovementModal from '../components/StockMovementModal';
 import CSVImportModal from '../components/CSVImportModal';
@@ -16,7 +17,7 @@ import { Category, TransactionType, InventoryItem } from '../types';
 import { Loader2 } from 'lucide-react';
 
 export default function Index() {
-  const { currentPage, loading } = useInventory();
+  const { currentPage, setCurrentPage, loading } = useInventory();
   const { role } = useAuth();
   const isAdmin = role === 'admin';
   const [showAddItem, setShowAddItem] = useState(false);
@@ -25,7 +26,11 @@ export default function Index() {
   const [stockMovementItem, setStockMovementItem] = useState<InventoryItem | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const isInventory = ['cleaning', 'office', 'clinic'].includes(currentPage);
+  useEffect(() => {
+    if (role === 'borrower' && currentPage === 'dashboard') {
+      setCurrentPage('portal');
+    }
+  }, [role, currentPage, setCurrentPage]);
 
   const openStockMovement = (type: TransactionType, item?: InventoryItem) => {
     setStockMovementType(type);
@@ -51,12 +56,13 @@ export default function Index() {
 
     switch (currentPage) {
       case 'dashboard': return <Dashboard />;
-      case 'cleaning': return <InventoryPage category="cleaning" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} />;
-      case 'office': return <InventoryPage category="office" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} />;
-      case 'clinic': return <InventoryPage category="clinic" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} />;
+      case 'cleaning': return <InventoryPage category="cleaning" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} onImportCSV={isAdmin ? () => setShowCSVImport(true) : undefined} onStockMovement={handleQuickAction} />;
+      case 'office': return <InventoryPage category="office" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} onImportCSV={isAdmin ? () => setShowCSVImport(true) : undefined} onStockMovement={handleQuickAction} />;
+      case 'clinic': return <InventoryPage category="clinic" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} onImportCSV={isAdmin ? () => setShowCSVImport(true) : undefined} onStockMovement={handleQuickAction} />;
       case 'transactions': return <TransactionLog />;
       case 'reports': return isAdmin ? <Reports /> : <Dashboard />;
       case 'settings': return isAdmin ? <SettingsPage /> : <Dashboard />;
+      case 'portal': return <SelfServicePortal />;
       default: return <Dashboard />;
     }
   };
@@ -75,8 +81,6 @@ export default function Index() {
           onToggleSidebar={() => setSidebarOpen(open => !open)}
           onQuickAction={handleQuickAction}
           onItemSelect={(item) => openStockMovement(isAdmin ? 'restock' : 'borrow', item)}
-          onAddItem={isAdmin && isInventory ? () => setShowAddItem(true) : undefined}
-          onImportCSV={isAdmin ? () => setShowCSVImport(true) : undefined}
         />
         {renderPage()}
       </div>

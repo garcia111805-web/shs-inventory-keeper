@@ -13,9 +13,11 @@ export default function BulkRestockModal({ category, onClose }: Props) {
   const catItems = items.filter(i => i.category === category);
   const [by, setBy] = useState('');
   const [newQtys, setNewQtys] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    if (!by.trim()) return;
+  const handleSubmit = async () => {
+    if (!by.trim() || loading) return;
+    setLoading(true);
     let count = 0;
     catItems.forEach(item => {
       const newQty = parseInt(newQtys[item.id] || '');
@@ -69,7 +71,9 @@ export default function BulkRestockModal({ category, onClose }: Props) {
       </div>
       <div className="flex justify-end gap-2 mt-5">
         <button className="modal-btn-cancel" onClick={onClose}>Cancel</button>
-        <button className="modal-btn-confirm" onClick={handleSubmit} disabled={!by.trim()}>Restock</button>
+        <button className="modal-btn-confirm" onClick={handleSubmit} disabled={!by.trim() || loading}>
+          {loading ? 'Processing...' : 'Restock'}
+        </button>
       </div>
     </ModalOverlay>
   );

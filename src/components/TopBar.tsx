@@ -9,8 +9,6 @@ interface Props {
   onToggleSidebar: () => void;
   onQuickAction: (type: TransactionType) => void;
   onItemSelect?: (item: InventoryItem) => void;
-  onAddItem?: () => void;
-  onImportCSV?: () => void;
 }
 
 const pageTitles: Record<string, string> = {
@@ -28,7 +26,7 @@ const ALL_ACTION_BUTTONS: { type: TransactionType; label: string; icon: React.Re
   { type: 'borrow', label: 'Borrow', icon: <Handshake size={16} />, color: '#7c3aed' },
 ];
 
-export default function TopBar({ onToggleSidebar, onQuickAction, onItemSelect, onAddItem, onImportCSV }: Props) {
+export default function TopBar({ onToggleSidebar, onQuickAction, onItemSelect }: Props) {
   const { currentPage, searchQuery, setSearchQuery, items } = useInventory();
   const { role, logout } = useAuth();
   const isAdmin = role === 'admin';
@@ -83,116 +81,25 @@ export default function TopBar({ onToggleSidebar, onQuickAction, onItemSelect, o
           {pageTitles[currentPage] || 'Dashboard'}
         </h1>
       </div>
-      <div className="topbar-search" ref={dropdownRef}>
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted-text)' }} />
-        <input
-          type="text"
-          placeholder="Quick-find items..."
-          value={searchQuery}
-          onChange={e => {
-            setSearchQuery(e.target.value);
-            if (e.target.value) setShowDropdown(true);
-          }}
-          onFocus={() => { if (searchQuery) setShowDropdown(true); }}
-          className="w-full pl-9 pr-4 py-2 rounded-xl font-body"
-          style={{
-            fontSize: 14,
-            background: 'var(--input-bg)',
-            border: '1px solid var(--input-border)',
-            color: 'var(--fg-color)',
-            outline: 'none',
-          }}
-        />
-        {/* Quick-find dropdown */}
-        {showDropdown && searchQuery && (
-          <div
-            className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-xl overflow-hidden z-50 animate-scale-up"
-            style={{ background: 'var(--dropdown-bg)', border: '1px solid var(--card-border)' }}
-          >
-            {searchResults.length === 0 ? (
-              <div className="px-4 py-3 font-body" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
-                No items matching "{searchQuery}"
-              </div>
-            ) : (
-              <div className="max-h-64 overflow-y-auto">
-                {searchResults.map(item => {
-                  const status = getStatus(item);
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleItemClick(item)}
-                      className="w-full text-left px-4 py-2.5 flex items-center gap-3 table-row-hover"
-                      style={{ borderBottom: '1px solid var(--card-border)' }}
-                    >
-                      <span className="font-body font-semibold flex-1 truncate" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
-                        {item.name}
-                      </span>
-                      <span className="font-body font-bold" style={{ fontSize: 13, color: 'var(--muted-text)', minWidth: 36, textAlign: 'right' }}>
-                        {item.quantity}
-                      </span>
-                      <StatusBadge status={status} />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      <div className="topbar-actions" style={{ alignItems: 'center' }}>
-        {actionButtons.map(btn => (
+      <div className="flex-1" />
+      <div className="topbar-actions flex-1 justify-end" style={{ alignItems: 'center' }}>
+        <div className="ml-auto pl-6 border-l border-slate-200 dark:border-slate-700 h-8 flex items-center">
           <button
-            key={btn.type}
-            onClick={() => onQuickAction(btn.type)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-body font-semibold transition-all hover:opacity-90"
-            style={{
-              fontSize: 13,
-              background: 'transparent',
-              border: `1.5px solid ${btn.color}`,
-              color: btn.color,
+            onClick={logout}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
+            style={{ 
+              fontSize: 13, 
+              background: '#fef2f2', 
+              border: '1.5px solid #fca5a5', 
+              color: '#b91c1c', 
+              cursor: 'pointer' 
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = btn.color;
-              e.currentTarget.style.color = 'white';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = btn.color;
-            }}
+            title="Sign out"
           >
-            {btn.icon}
-            <span>{btn.label}</span>
+            <LogOut size={15} />
+            <span className="hidden sm:inline">Sign Out</span>
           </button>
-        ))}
-        {isInventory && onAddItem && (
-          <button
-            onClick={onAddItem}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
-            style={{ fontSize: 14, background: '#0d1b6e', color: 'white' }}
-          >
-            <Plus size={16} />
-            <span>Add Item</span>
-          </button>
-        )}
-        {onImportCSV && (
-          <button
-            onClick={onImportCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
-            style={{ fontSize: 13, background: 'transparent', border: '1.5px solid var(--location-text)', color: 'var(--location-text)' }}
-            title="Import inventory from CSV"
-          >
-            <Upload size={15} />
-            <span>Import CSV</span>
-          </button>
-        )}
-        <button
-          onClick={logout}
-          className="flex items-center gap-1 px-2.5 py-2 rounded-xl font-body transition-opacity hover:opacity-80"
-          style={{ fontSize: 12, background: 'transparent', border: '1px solid var(--card-border)', color: 'var(--muted-text)', cursor: 'pointer' }}
-          title="Sign out"
-        >
-          <LogOut size={14} />
-        </button>
+        </div>
       </div>
     </div>
   );

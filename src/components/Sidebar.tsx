@@ -6,7 +6,10 @@ import { Sun, Moon, X, Settings } from 'lucide-react';
 const navSections = [
   {
     label: 'MAIN',
-    items: [{ page: 'dashboard' as PageName, label: 'Dashboard' }],
+    items: [
+      { page: 'portal' as PageName, label: 'Portal' },
+      { page: 'dashboard' as PageName, label: 'Dashboard' }
+    ],
   },
   {
     label: 'INVENTORY',
@@ -39,7 +42,11 @@ export default function Sidebar({ isOpen, onClose }: Props) {
   const filteredSections = navSections.map(section => ({
     ...section,
     items: section.items.filter(item => {
-      if (!isAdmin && item.page === 'reports') return false;
+      if (!isAdmin) {
+        // Staff only see the Portal
+        if (item.page !== 'portal') return false;
+      }
+      if (isAdmin && item.page === 'portal') return false;
       return true;
     }),
   })).filter(section => section.items.length > 0);

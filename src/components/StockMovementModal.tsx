@@ -7,10 +7,9 @@ import {
   getStatus,
   getCategoryColor,
 } from '../types';
-import { useDepartments } from '../hooks/useDepartments';
 import ModalOverlay from './ModalOverlay';
 import StatusBadge from './StatusBadge';
-import { Search, ArrowLeftRight } from 'lucide-react';
+import { Search, ArrowLeftRight, Calendar, Clock } from 'lucide-react';
 
 interface Props {
   item?: InventoryItem;
@@ -27,7 +26,6 @@ const TYPE_CONFIG: { type: TransactionType; label: string; color: string }[] = [
 export default function StockMovementModal({ item: prefilledItem, defaultType, onClose }: Props) {
   const { items, addTransaction, showToast } = useInventory();
   const { role } = useAuth();
-  const { departments } = useDepartments();
 
   const isAdmin = role === 'admin';
   const availableTypes = isAdmin 
@@ -43,13 +41,14 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
   const [type, setType] = useState<TransactionType>(defaultType || 'restock');
   const [qty, setQty] = useState('');
   const [by, setBy] = useState('');
-  const [department, setDepartment] = useState('');
   const [returnDate, setReturnDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 16));
+  const [datePart, setDatePart] = useState(new Date().toISOString().slice(0, 10));
+  const [timePart, setTimePart] = useState(new Date().toTimeString().slice(0, 5));
 
   // Validation state
   const [touched, setTouched] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const filtered = useMemo(() => {
     if (!search) return items;
@@ -66,17 +65,17 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
   const isQtyValid =
     qtyNum > 0 && (type === 'restock' || newStock >= 0);
   const isByValid = by.trim().length > 0;
-  const isDeptValid = department !== '';
   const isReturnValid = type !== 'borrow' || returnDate !== '';
   const canSubmit =
-    selectedItem && isQtyValid && isByValid && isDeptValid && isReturnValid;
+    selectedItem && isQtyValid && isByValid && isReturnValid;
 
   const fieldClass = (valid: boolean) =>
     `modal-input${touched && !valid ? ' field-error' : ''}`;
 
   const handleSubmit = async () => {
     setTouched(true);
-    if (!canSubmit) return;
+    if (!canSubmit || loading) return;
+    setLoading(true);
     try {
       await addTransaction({
         itemId: selectedItem.id,
@@ -86,10 +85,9 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
         qtyChange: type === 'restock' ? qtyNum : -qtyNum,
         newStock,
         by: by.trim(),
-        department: department as any,
         returnDate: type === 'borrow' ? returnDate : undefined,
         notes,
-        date: new Date(date).toISOString(),
+        date: new Date(`${datePart}T${timePart}`).toISOString(),
       });
       showToast(
         `${type.charAt(0).toUpperCase() + type.slice(1)} recorded for ${selectedItem.name}`,
@@ -98,6 +96,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
       onClose();
     } catch (err: any) {
       showToast(err?.message || 'Operation failed. Please try again.', 'error');
+      setLoading(false);
     }
   };
 
@@ -257,42 +256,49 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
               onChange={e => setQty(e.target.value)}
             />
           </div>
-          <div>
-            <label
-              className="font-body text-xs mb-1 block"
-              style={{ color: 'var(--muted-text)' }}
+          <div className="col-span-2 flex items-center justify-between mt-1">
+            <span className="font-body text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-text)', fontSize: 10 }}>
+              Date & Time
+            </span>
+            <button 
+              type="button"
+              onClick={() => {
+                setDatePart(new Date().toISOString().slice(0, 10));
+                setTimePart(new Date().toTimeString().slice(0, 5));
+              }}
+              className="text-xs font-semibold hover:opacity-70 transition-opacity"
+              style={{ color: '#0d1b6e' }}
             >
-              Date &amp; Time
-            </label>
-            <input
-              className="modal-input"
-              type="datetime-local"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-            />
+              Set to Now
+            </button>
+          </div>
+          <div className="space-y-1">
+            <div className="relative">
+              <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--muted-text)' }} />
+              <input
+                className="modal-input"
+                style={{ paddingLeft: '2.5rem' }}
+                type="date"
+                value={datePart}
+                onChange={e => setDatePart(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="relative">
+              <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--muted-text)' }} />
+              <input
+                className="modal-input"
+                style={{ paddingLeft: '2.5rem' }}
+                type="time"
+                value={timePart}
+                onChange={e => setTimePart(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
-        <div>
-          <label
-            className="font-body text-xs mb-1 block"
-            style={{ color: 'var(--muted-text)' }}
-          >
-            Department / Office <span style={{ color: '#b91c1c' }}>*</span>
-          </label>
-          <select
-            className={fieldClass(isDeptValid)}
-            value={department}
-            onChange={e => setDepartment(e.target.value)}
-          >
-            <option value="">Select department…</option>
-            {departments.map(d => (
-              <option key={d.id} value={d.name}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
+
 
         <div>
           <label
@@ -350,13 +356,23 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
 
       {/* Stock preview */}
       {qtyNum > 0 && selectedItem && (
-        <div className="mt-3 font-body" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
-          New stock:{' '}
-          <strong style={{ color: newStock < 0 ? '#b91c1c' : 'var(--fg-color)' }}>
-            {newStock}
-          </strong>
+        <div 
+          className="mt-3 p-3 rounded-xl font-body" 
+          style={{ 
+            fontSize: 13, 
+            background: newStock < 0 ? 'rgba(185,28,28,0.1)' : 'rgba(21,128,61,0.08)',
+            border: `1px solid ${newStock < 0 ? 'rgba(185,28,28,0.2)' : 'rgba(21,128,61,0.15)'}`,
+            color: newStock < 0 ? '#b91c1c' : '#15803d'
+          }}
+        >
+          <div className="flex justify-between items-center">
+            <span>Resulting Stock:</span>
+            <span className="font-bold" style={{ fontSize: 15 }}>{newStock} {selectedItem.unit}</span>
+          </div>
           {newStock < 0 && (
-            <span style={{ color: '#b91c1c' }}> (insufficient stock!)</span>
+            <p className="mt-1 font-semibold" style={{ fontSize: 11 }}>
+              ⚠️ You cannot use/borrow more than the current stock.
+            </p>
           )}
         </div>
       )}
@@ -368,18 +384,19 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
         </button>
         <button
           onClick={handleSubmit}
+          disabled={!canSubmit || loading}
           className="px-4 py-2 rounded-xl font-body font-semibold transition-all"
           style={{
             fontSize: 14,
             background: activeColor,
             color: 'white',
-            opacity: canSubmit ? 1 : 0.7,
-            cursor: canSubmit ? 'pointer' : 'not-allowed',
+            opacity: canSubmit && !loading ? 1 : 0.7,
+            cursor: canSubmit && !loading ? 'pointer' : 'not-allowed',
             border: 'none',
             transition: 'background 0.25s, opacity 0.2s',
           }}
         >
-          Confirm {type.charAt(0).toUpperCase() + type.slice(1)}
+          {loading ? 'Processing...' : `Confirm ${type.charAt(0).toUpperCase() + type.slice(1)}`}
         </button>
       </div>
     </ModalOverlay>

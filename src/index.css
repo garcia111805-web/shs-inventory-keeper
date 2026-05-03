@@ -3,21 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --app-bg: linear-gradient(135deg, #eef0fa, #f4f1fd, #fdf0f0);
-  --topbar-bg: rgba(255,255,255,0.88);
-  --topbar-border: rgba(0,0,0,0.07);
+  --app-bg: #f4f6f8;
+  --topbar-bg: rgba(255, 255, 255, 0.95);
+  --topbar-border: rgba(0, 0, 0, 0.03);
   --card-bg: #ffffff;
-  --card-border: rgba(0,0,0,0.07);
+  --card-border: rgba(0, 0, 0, 0.04);
   --dropdown-bg: #ffffff;
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
-  --table-header-bg: rgba(0,0,0,0.025);
-  --table-row-hover: rgba(13,27,110,0.035);
-  --input-bg: #f0f2f9;
-  --input-border: rgba(0,0,0,0.11);
-  --fg-color: #0d1b6e;
+  --card-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.02);
+  --table-header-bg: rgba(0, 0, 0, 0.015);
+  --table-row-hover: rgba(0, 0, 0, 0.02);
+  --input-bg: #f8fafc;
+  --input-border: #e2e8f0;
+  --fg-color: #475569;
   --heading-color: #0d1b6e;
-  --muted-text: #6b7280;
-  --donut-track: #e5e7eb;
+  --muted-text: #94a3b8;
+  --donut-track: #f1f5f9;
   --status-in-stock-bg: #dcfce7;
   --status-in-stock-text: #15803d;
   --status-in-stock-dot: #15803d;
@@ -33,21 +33,21 @@
 }
 
 .dark {
-  --app-bg: linear-gradient(135deg, #060c2a, #0a0f2e, #160408);
-  --topbar-bg: rgba(10,15,46,0.92);
-  --topbar-border: rgba(255,255,255,0.08);
-  --card-bg: rgba(255,255,255,0.04);
-  --card-border: rgba(255,255,255,0.08);
-  --dropdown-bg: #0f1535;
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
-  --table-header-bg: rgba(255,255,255,0.04);
-  --table-row-hover: rgba(255,255,255,0.04);
-  --input-bg: rgba(255,255,255,0.07);
-  --input-border: rgba(255,255,255,0.12);
-  --fg-color: #e2e8f0;
-  --heading-color: #f0d080;
-  --muted-text: #94a3b8;
-  --donut-track: rgba(255,255,255,0.1);
+  --app-bg: #020617;
+  --topbar-bg: rgba(2, 6, 23, 0.95);
+  --topbar-border: rgba(255, 255, 255, 0.03);
+  --card-bg: #0f172a;
+  --card-border: rgba(255, 255, 255, 0.05);
+  --dropdown-bg: #0f172a;
+  --card-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.3);
+  --table-header-bg: rgba(255, 255, 255, 0.015);
+  --table-row-hover: rgba(255, 255, 255, 0.03);
+  --input-bg: rgba(0, 0, 0, 0.2);
+  --input-border: rgba(255, 255, 255, 0.1);
+  --fg-color: #f1f5f9;
+  --heading-color: #ffffff;
+  --muted-text: #64748b;
+  --donut-track: rgba(255, 255, 255, 0.05);
   --status-in-stock-bg: rgba(74,222,128,0.15);
   --status-in-stock-text: #4ade80;
   --status-in-stock-dot: #4ade80;
@@ -89,6 +89,7 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
+  border-radius: 16px;
 }
 
 .table-row-hover:hover {
@@ -97,24 +98,32 @@ h1, h2, h3, h4, h5, h6 {
 
 .modal-input {
   width: 100%;
-  border-radius: 0.75rem;
-  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
   font-size: 0.875rem;
   font-family: 'Outfit', sans-serif;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   color: var(--fg-color);
   outline: none;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
 }
 
 .modal-input:focus {
-  border-color: #0d1b6e;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Hide native date/time icons to use custom ones */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  cursor: pointer;
 }
 
 .modal-btn-cancel {
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: 12px;
   font-size: 0.875rem;
   font-family: 'Outfit', sans-serif;
   font-weight: 500;
@@ -130,8 +139,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .modal-btn-confirm {
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: 12px;
   font-size: 0.875rem;
   font-family: 'Outfit', sans-serif;
   font-weight: 600;
@@ -266,7 +275,7 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 14px 32px;
+  padding: 14px 20px 14px 32px;
 }
 
 .topbar-left {

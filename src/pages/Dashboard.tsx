@@ -35,24 +35,24 @@ export default function Dashboard() {
       {/* Row 1: Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Total Items', value: total, color: '#0d1b6e', icon: <Package size={20} color="white" /> },
-          { label: 'In Stock', value: inStock, color: '#15803d', icon: <CheckCircle size={20} color="white" /> },
-          { label: 'Low Stock', value: lowStock, color: '#d97706', icon: <AlertTriangle size={20} color="white" /> },
-          { label: 'Out of Stock', value: outOfStock, color: '#b91c1c', icon: <XCircle size={20} color="white" /> },
+          { label: 'Total Items', value: total, color: '#2563eb', icon: <Package size={22} color="white" /> },
+          { label: 'In Stock', value: inStock, color: '#16a34a', icon: <CheckCircle size={22} color="white" /> },
+          { label: 'Low Stock', value: lowStock, color: '#ea580c', icon: <AlertTriangle size={22} color="white" /> },
+          { label: 'Out of Stock', value: outOfStock, color: '#dc2626', icon: <XCircle size={22} color="white" /> },
         ].map((card, i) => (
           <div
             key={i}
-            className="flex-1 rounded-2xl px-4 py-4 panel-card flex items-center gap-3"
-            style={{ borderLeft: `4px solid ${card.color}` }}
+            className="flex-1 px-4 py-5 panel-card flex items-center gap-4 overflow-hidden"
+            style={{ borderLeft: `6px solid ${card.color}` }}
           >
-            <div className="rounded-xl flex items-center justify-center" style={{ width: 40, height: 40, background: card.color }}>
+            <div className="rounded-[12px] flex items-center justify-center shrink-0" style={{ width: 48, height: 48, background: card.color }}>
               {card.icon}
             </div>
-            <div>
-              <div className="font-body font-bold" style={{ fontSize: 26, letterSpacing: '-1px', color: 'var(--fg-color)' }}>
+            <div className="flex flex-col">
+              <div className="font-body font-bold" style={{ fontSize: 26, letterSpacing: '-0.5px', color: 'var(--heading-color)', lineHeight: 1 }}>
                 {card.value}
               </div>
-              <div className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)', marginTop: 2 }}>
+              <div className="font-body" style={{ fontSize: 12, color: 'var(--muted-text)', marginTop: 4 }}>
                 {card.label}
               </div>
             </div>
@@ -69,7 +69,7 @@ export default function Dashboard() {
         >
           {/* Header */}
           <div className="px-6 pt-5 pb-2">
-            <h3 className="font-heading font-bold" style={{ fontSize: 16, color: 'var(--heading-color)' }}>
+            <h3 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>
               Stock Breakdown by Category
             </h3>
           </div>
@@ -95,7 +95,7 @@ export default function Dashboard() {
                       cursor: cs.cat === 'all' ? 'default' : 'pointer',
                       padding: 0,
                     }}
-                    onMouseEnter={e => { if (cs.cat !== 'all') e.currentTarget.style.color = '#0d1b6e'; }}
+                    onMouseEnter={e => { if (cs.cat !== 'all') e.currentTarget.style.color = '#7c3aed'; }}
                     onMouseLeave={e => { if (cs.cat !== 'all') e.currentTarget.style.color = 'var(--fg-color)'; }}
                   >
                     {cs.cat === 'all' ? 'Overall' : cs.cat === 'cleaning' ? 'Cleaning' : cs.cat === 'office' ? 'Office' : 'Clinic'}
@@ -173,7 +173,7 @@ export default function Dashboard() {
           style={{ border: '1px solid var(--card-border)' }}
         >
           <div className="px-6 pt-5 pb-2">
-            <h3 className="font-heading font-bold" style={{ fontSize: 16, color: 'var(--heading-color)' }}>Recent Activity</h3>
+            <h3 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>Recent Activity</h3>
             <p className="font-body mt-0.5" style={{ fontSize: 11, color: 'var(--muted-text)' }}>Latest transactions across all categories</p>
           </div>
           <div className="flex-1 flex flex-col justify-center px-4 py-1">
