@@ -7,11 +7,9 @@ interface InventoryContextType {
   transactions: Transaction[];
   currentPage: PageName;
   searchQuery: string;
-  darkMode: boolean;
   loading: boolean;
   setCurrentPage: (page: PageName) => void;
   setSearchQuery: (q: string) => void;
-  toggleDarkMode: () => void;
   addItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => Promise<void>;
   updateItem: (item: InventoryItem) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -48,7 +46,7 @@ function loadFromLS<T>(key: string, fallback: T): T {
 function mapItem(row: any): InventoryItem {
   return {
     id: row.id,
-    name: row.name,
+    name: (row.name || '').toUpperCase(),
     category: (row.category || '').toLowerCase() as Category,
     unit: row.unit || 'pcs',
     quantity: row.quantity ?? 0,
@@ -56,6 +54,7 @@ function mapItem(row: any): InventoryItem {
     notes: row.notes || '',
     lastUpdated: row.last_updated || row.lastUpdated || new Date().toISOString().split('T')[0],
     location: row.location || undefined,
+    isConsumable: row.is_consumable ?? true,
   };
 }
 
@@ -64,7 +63,7 @@ function mapTransaction(row: any): Transaction {
   return {
     id: row.id,
     itemId: row.item_id || row.itemId || '',
-    itemName: row.item_name || row.itemName || '',
+    itemName: (row.item_name || row.itemName || '').toUpperCase(),
     category: (row.category || '').toLowerCase() as Category,
     type: row.type as any,
     qtyChange: row.qty_change ?? row.qtyChange ?? 0,
@@ -81,7 +80,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentPage, setCurrentPage] = useState<PageName>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [darkMode, setDarkMode] = useState(() => loadFromLS('sshs-dark', false));
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -146,24 +144,18 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // ─── Dark mode persistence ───
-  useEffect(() => {
-    localStorage.setItem('sshs-dark', JSON.stringify(darkMode));
-    document.documentElement.classList.toggle('dark', darkMode);
-  }, [darkMode]);
-
-  const toggleDarkMode = useCallback(() => setDarkMode(d => !d), []);
 
   // ─── CRUD operations via Supabase ───
   const addItem = useCallback(async (data: Omit<InventoryItem, 'id' | 'lastUpdated'>) => {
     const { error } = await supabase.from('items').insert({
-      name: data.name,
+      name: data.name.toUpperCase(),
       category: data.category,
       unit: data.unit,
       quantity: data.quantity,
       low_stock_threshold: data.lowStockThreshold,
       notes: data.notes,
       location: data.location || null,
+      is_consumable: data.isConsumable,
       last_updated: new Date().toISOString().split('T')[0],
     });
     if (error) {
@@ -175,13 +167,14 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   const updateItem = useCallback(async (updated: InventoryItem) => {
     const { error } = await supabase.from('items').update({
-      name: updated.name,
+      name: updated.name.toUpperCase(),
       category: updated.category,
       unit: updated.unit,
       quantity: updated.quantity,
       low_stock_threshold: updated.lowStockThreshold,
       notes: updated.notes,
       location: updated.location || null,
+      is_consumable: updated.isConsumable,
       last_updated: new Date().toISOString().split('T')[0],
     }).eq('id', updated.id);
     if (error) {
@@ -219,7 +212,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     // 2. Insert transaction record
     const { error: txErr } = await supabase.from('transactions').insert({
       item_id: tx.itemId,
-      item_name: tx.itemName,
+      item_name: tx.itemName.toUpperCase(),
       category: tx.category,
       type: tx.type,
       qty_change: tx.qtyChange,
@@ -293,8 +286,8 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   return (
     <InventoryContext.Provider value={{
-      items, transactions, currentPage, searchQuery, darkMode, loading,
-      setCurrentPage, setSearchQuery, toggleDarkMode,
+      items, transactions, currentPage, searchQuery, loading,
+      setCurrentPage, setSearchQuery,
       addItem, updateItem, deleteItem, addTransaction, updateTransaction, voidTransaction, refreshData, showToast, toasts,
     }}>
       {children}

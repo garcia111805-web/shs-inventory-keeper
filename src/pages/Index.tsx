@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useInventory } from '../context/InventoryContext';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
@@ -14,23 +14,28 @@ import AddEditItemModal from '../components/AddEditItemModal';
 import StockMovementModal from '../components/StockMovementModal';
 import CSVImportModal from '../components/CSVImportModal';
 import { Category, TransactionType, InventoryItem } from '../types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LogOut, Handshake, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Index() {
   const { currentPage, setCurrentPage, loading } = useInventory();
-  const { role } = useAuth();
+  const { role, user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const isAdmin = role === 'admin';
+  
   const [showAddItem, setShowAddItem] = useState(false);
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [stockMovementType, setStockMovementType] = useState<TransactionType | null>(null);
   const [stockMovementItem, setStockMovementItem] = useState<InventoryItem | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [staffMode, setStaffMode] = useState<'borrow' | 'use' | 'return'>('borrow');
 
+  // Ensure non-admins start on the portal
   useEffect(() => {
-    if (role === 'borrower' && currentPage === 'dashboard') {
+    if (role && !isAdmin && currentPage === 'dashboard') {
       setCurrentPage('portal');
     }
-  }, [role, currentPage, setCurrentPage]);
+  }, [role, isAdmin, currentPage, setCurrentPage]);
 
   const openStockMovement = (type: TransactionType, item?: InventoryItem) => {
     setStockMovementType(type);
@@ -42,37 +47,109 @@ export default function Index() {
     setStockMovementItem(undefined);
   };
 
-  const renderPage = () => {
-    if (loading) {
-      return (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 size={36} className="animate-spin" style={{ color: 'var(--muted-text)' }} />
-            <p className="font-body" style={{ fontSize: 14, color: 'var(--muted-text)' }}>Loading inventory data...</p>
-          </div>
-        </div>
-      );
-    }
-
-    switch (currentPage) {
-      case 'dashboard': return <Dashboard />;
-      case 'cleaning': return <InventoryPage category="cleaning" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} onImportCSV={isAdmin ? () => setShowCSVImport(true) : undefined} onStockMovement={handleQuickAction} />;
-      case 'office': return <InventoryPage category="office" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} onImportCSV={isAdmin ? () => setShowCSVImport(true) : undefined} onStockMovement={handleQuickAction} />;
-      case 'clinic': return <InventoryPage category="clinic" onAddItem={isAdmin ? () => setShowAddItem(true) : undefined} onImportCSV={isAdmin ? () => setShowCSVImport(true) : undefined} onStockMovement={handleQuickAction} />;
-      case 'transactions': return <TransactionLog />;
-      case 'reports': return isAdmin ? <Reports /> : <Dashboard />;
-      case 'settings': return isAdmin ? <SettingsPage /> : <Dashboard />;
-      case 'portal': return <SelfServicePortal />;
-      default: return <Dashboard />;
-    }
-  };
-
-  // Borrower can only use 'borrow' type
   const handleQuickAction = (type: TransactionType) => {
-    if (!isAdmin && type !== 'borrow') return;
+    if (role !== 'admin' && type !== 'borrow') return;
     openStockMovement(type);
   };
 
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'dashboard': return <Dashboard />;
+      case 'cleaning': return <InventoryPage category="cleaning" onAddItem={() => setShowAddItem(true)} onImportCSV={() => setShowCSVImport(true)} onStockMovement={handleQuickAction} forcedType={staffMode} />;
+      case 'office': return <InventoryPage category="office" onAddItem={() => setShowAddItem(true)} onImportCSV={() => setShowCSVImport(true)} onStockMovement={handleQuickAction} forcedType={staffMode} />;
+      case 'clinic': return <InventoryPage category="clinic" onAddItem={() => setShowAddItem(true)} onImportCSV={() => setShowCSVImport(true)} onStockMovement={handleQuickAction} forcedType={staffMode} />;
+      case 'transactions': return <TransactionLog />;
+      case 'reports': return <Reports />;
+      case 'settings': return <SettingsPage />;
+      case 'portal': return (
+        <div className="p-4 md:p-8">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <header 
+          className="flex items-center justify-between p-4 transition-colors duration-300 rounded-2xl border"
+          style={{ 
+            background: 'var(--topbar-bg)', 
+            borderColor: 'var(--topbar-border)',
+            backdropFilter: 'blur(12px)'
+          }}
+        >
+              <div className="flex items-center gap-3">
+                <Handshake size={24} className="text-[#e8b400]" />
+                <h2 className="font-heading font-bold" style={{ color: 'var(--heading-color)' }}>Operations Preview</h2>
+              </div>
+              <p className="text-xs italic" style={{ color: 'var(--muted-text)' }}>What staff see</p>
+            </header>
+            <SelfServicePortal onAction={(type) => {
+              setStaffMode(type);
+              setCurrentPage('cleaning');
+            }} />
+          </div>
+        </div>
+      );
+      default: return isAdmin ? <Dashboard /> : <SelfServicePortal />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center transition-colors duration-300" style={{ background: 'var(--app-bg)' }}>
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={48} className="animate-spin text-[#e8b400]" />
+          <p className="font-body text-[var(--muted-text)]" style={{ fontSize: 14 }}>Initializing system...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── STAFF LAYOUT ───
+  if (role && role !== 'admin') {
+    return (
+      <div className="min-h-screen flex flex-col transition-colors duration-300" style={{ background: 'var(--app-bg)' }}>
+        <header className="px-6 py-4 flex items-center justify-between border-b transition-colors duration-300" style={{ background: 'var(--topbar-bg)', borderColor: 'var(--topbar-border)' }}>
+          <div className="flex items-center gap-3">
+            <img src="/images/sshs-logo.jpg" alt="Logo" className="w-8 h-8 rounded-full border border-[#e8b400]" />
+            <div>
+              <h2 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)', lineHeight: 1.2 }}>Staff Operations</h2>
+              <p className="font-body text-[10px] uppercase tracking-wider" style={{ color: 'var(--muted-text)' }}>{user?.fullName}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all shadow-sm"
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <button 
+              onClick={logout}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all font-body text-xs font-bold"
+            >
+              <LogOut size={14} /> Logout
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 p-0 overflow-y-auto">
+          {currentPage === 'portal' ? (
+            <SelfServicePortal onAction={(type) => {
+              setStaffMode(type);
+              setCurrentPage('cleaning');
+            }} />
+          ) : (
+            <div className="animate-fade-in h-full flex flex-col">
+              <div className="flex-1 overflow-y-auto">
+                {renderPage()}
+              </div>
+            </div>
+          )}
+        </main>
+        
+        <ToastContainer />
+      </div>
+    );
+  }
+
+  // ─── ADMIN LAYOUT ───
   return (
     <div className="app-shell">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -80,22 +157,25 @@ export default function Index() {
         <TopBar
           onToggleSidebar={() => setSidebarOpen(open => !open)}
           onQuickAction={handleQuickAction}
-          onItemSelect={(item) => openStockMovement(isAdmin ? 'restock' : 'borrow', item)}
+          onItemSelect={(item) => openStockMovement('restock', item)}
         />
-        {renderPage()}
+        <div className="flex-1 overflow-y-auto">
+          {renderPage()}
+        </div>
       </div>
       <div
         className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
         onClick={() => setSidebarOpen(false)}
       />
       <ToastContainer />
-      {showAddItem && isAdmin && (
+      
+      {showAddItem && (
         <AddEditItemModal
           defaultCategory={currentPage as Category}
           onClose={() => setShowAddItem(false)}
         />
       )}
-      {showCSVImport && isAdmin && (
+      {showCSVImport && (
         <CSVImportModal onClose={() => setShowCSVImport(false)} />
       )}
       {stockMovementType && (

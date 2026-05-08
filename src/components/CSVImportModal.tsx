@@ -4,6 +4,7 @@ import { Category } from '../types';
 import ModalOverlay from './ModalOverlay';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { formatItemName } from '../lib/utils';
 
 interface Props {
   onClose: () => void;
@@ -17,6 +18,7 @@ interface ParsedRow {
   lowStockThreshold: number;
   notes: string;
   location?: string;
+  isConsumable: boolean;
   isDuplicate?: boolean;
 }
 
@@ -30,6 +32,7 @@ function normalizeHeader(h: string): string {
   if (['threshold', 'lowstock', 'lowstockthreshold', 'minstocklevel', 'reorderlevel', 'low'].includes(s)) return 'threshold';
   if (['notes', 'note', 'remarks', 'comment', 'comments', 'description'].includes(s)) return 'notes';
   if (['location', 'loc', 'room', 'storage', 'area', 'place', 'cabinet', 'storagetype', 'storagelocation'].includes(s)) return 'location';
+  if (['consumable', 'isconsumable', 'type', 'classification', 'asset'].includes(s)) return 'consumable';
   return s;
 }
 
@@ -97,7 +100,7 @@ export default function CSVImportModal({ onClose }: Props) {
     const isSucatFormat = allRows[0]?.[0]?.toUpperCase().includes('SUCAT SENIOR HIGH SCHOOL');
     
     if (isSucatFormat) {
-      const existingNames = new Set(items.map(i => i.name.toLowerCase().trim()));
+      const existingNames = new Set(items.map(i => formatItemName(i.name).toLowerCase()));
       const parsedItems: ParsedRow[] = [];
       
       // Start from Row 6 (index 6) based on inspection
@@ -111,19 +114,25 @@ export default function CSVImportModal({ onClose }: Props) {
       for (let i = 6; i < allRows.length; i++) {
         const row = allRows[i];
         sections.forEach(sec => {
-          const name = row[sec.col]?.trim();
+          const rawName = row[sec.col]?.trim();
           const qtyVal = row[sec.col + 1];
-          if (name && name !== 'Materials' && name !== '') {
+          if (rawName && rawName !== 'Materials' && rawName !== '') {
+            const formattedName = formatItemName(rawName);
+            const nameLower = formattedName.toLowerCase();
+            const isDuplicate = existingNames.has(nameLower);
+            
             parsedItems.push({
-              name,
+              name: formattedName,
               category: sec.cat,
               unit: 'pcs',
               quantity: Math.max(0, parseInt(qtyVal) || 0),
               lowStockThreshold: 3,
               notes: '',
               location: undefined,
-              isDuplicate: existingNames.has(name.toLowerCase())
+              isConsumable: true,
+              isDuplicate
             });
+            existingNames.add(nameLower);
           }
         });
       }
@@ -166,22 +175,33 @@ export default function CSVImportModal({ onClose }: Props) {
     const threshIdx = mapped.indexOf('threshold');
     const notesIdx = mapped.indexOf('notes');
     const locIdx = mapped.indexOf('location');
+    const consIdx = mapped.indexOf('consumable');
 
-    const existingNames = new Set(items.map(i => i.name.toLowerCase().trim()));
+    const existingNames = new Set(items.map(i => formatItemName(i.name).toLowerCase()));
 
     const parsedItems: ParsedRow[] = dataRows
       .filter(row => row[nameIdx]?.trim())
       .map(row => {
-        const name = row[nameIdx]?.trim() || '';
+        const rawName = row[nameIdx]?.trim() || '';
+        const formattedName = formatItemName(rawName);
+        const nameLower = formattedName.toLowerCase();
+        const isDuplicate = existingNames.has(nameLower);
+        
+        existingNames.add(nameLower);
+
+        const consRaw = consIdx >= 0 ? row[consIdx]?.toLowerCase() || '' : '';
+        const isConsumable = consRaw.includes('asset') || consRaw.includes('non') || consRaw === 'false' || consRaw === 'no' ? false : true;
+
         return {
-          name,
+          name: formattedName,
           category: catIdx >= 0 ? normalizeCategory(row[catIdx] || '') : 'office',
           unit: unitIdx >= 0 ? (row[unitIdx]?.trim() || 'pcs') : 'pcs',
           quantity: qtyIdx >= 0 ? Math.max(0, parseInt(row[qtyIdx]) || 0) : 0,
           lowStockThreshold: threshIdx >= 0 ? Math.max(0, parseInt(row[threshIdx]) || 3) : 3,
           notes: notesIdx >= 0 ? (row[notesIdx]?.trim() || '') : '',
           location: locIdx >= 0 ? (row[locIdx]?.trim() || undefined) : undefined,
-          isDuplicate: existingNames.has(name.toLowerCase()),
+          isConsumable,
+          isDuplicate,
         };
       });
 
@@ -275,12 +295,14 @@ export default function CSVImportModal({ onClose }: Props) {
             try {
               await updateItem({
                 ...existing,
+                name: row.name,
                 category: row.category,
                 unit: row.unit,
                 quantity: row.quantity,
                 lowStockThreshold: row.lowStockThreshold,
                 notes: row.notes || existing.notes,
                 location: row.location || existing.location,
+                isConsumable: row.isConsumable,
               });
               updateCount++;
               setUpdated(updateCount);
@@ -304,6 +326,7 @@ export default function CSVImportModal({ onClose }: Props) {
           lowStockThreshold: row.lowStockThreshold,
           notes: row.notes,
           location: row.location || undefined,
+          isConsumable: row.isConsumable,
         });
         successCount++;
         setImported(successCount);

@@ -1,201 +1,254 @@
-import { useState } from 'react';
-import { useAuth, UserRole } from '../context/AuthContext';
-import { ShieldCheck, Handshake, Lock, ArrowRight, CornerDownLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { ShieldCheck, Lock, ChevronRight, CornerDownLeft, Loader2, User, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import { supabase } from '../lib/supabase';
+import { AppUser } from '../types';
 
 export default function LoginGateway() {
   const { login } = useAuth();
   const [mode, setMode] = useState<'select' | 'pin'>('select');
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [shake, setShake] = useState(false);
-  const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
+  const { theme, toggleTheme } = useTheme();
 
-  const ADMIN_PIN = '1234';
+  useEffect(() => {
+    async function fetchUsers() {
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('*')
+        .order('full_name');
+      
+      if (!error && data) {
+        setUsers(data.map(d => ({
+          id: d.id,
+          fullName: d.full_name,
+          employeeId: d.employee_id,
+          role: d.role,
+          pin: d.pin,
+          createdAt: d.created_at
+        })));
+      }
+      setLoading(false);
+    }
+    fetchUsers();
+  }, []);
 
-  const handleAdminClick = () => {
-    setPendingRole('admin');
-    setMode('pin');
-    setPin('');
-    setError('');
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+  };
+
+  const handleUserSelect = (user: AppUser) => {
+    if (user.role === 'admin') {
+      setSelectedUser(user);
+      setMode('pin');
+      setPin('');
+      setError('');
+    } else {
+      // Fast login for staff/borrowers
+      login(user);
+    }
   };
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const correctPin = pendingRole === 'admin' ? '1234' : '4321';
-    if (pin === correctPin) {
-      login(pendingRole!);
+    if (!selectedUser) return;
+
+    if (pin === selectedUser.pin) {
+      login(selectedUser);
     } else {
       setError('Incorrect PIN');
-      setShake(true);
-      setTimeout(() => setShake(false), 400);
+      triggerShake();
       setPin('');
     }
   };
 
-  const handleBorrowerClick = () => {
-    setPendingRole('borrower');
-    setMode('pin');
+  const reset = () => {
+    setMode('select');
+    setSelectedUser(null);
     setPin('');
     setError('');
   };
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4"
+      className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-300"
       style={{
-        background: 'linear-gradient(135deg, #060c2a 0%, #0d1b6e 40%, #1a0a3e 70%, #6b0a0a 100%)',
+        background: theme === 'dark'
+          ? 'var(--app-bg)'
+          : 'linear-gradient(135deg, #e8edf5 0%, #f1f5f9 50%, #e2e8f0 100%)',
       }}
     >
+      {/* Top Toggle */}
+      <div className="absolute top-6 right-6">
+        <button 
+          onClick={toggleTheme}
+          className="w-12 h-12 rounded-2xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all shadow-sm"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+      </div>
+
       <div className="w-full" style={{ maxWidth: 440 }}>
         {/* Logo + Title */}
-        <div className="text-center mb-8">
-          <img
-            src="/images/sshs-logo.jpg"
-            alt="SSHS Logo"
-            className="rounded-full mx-auto"
-            style={{
-              width: 100,
-              height: 100,
-              border: '3px solid #e8b400',
-              boxShadow: '0 0 24px rgba(232,180,0,0.4)',
-            }}
-          />
-          <h1 className="font-heading font-bold mt-4" style={{ fontSize: 22, color: '#e8b400' }}>
-            SSHS Inventory System
+        <div className="text-center mb-10">
+          <div className="relative inline-block">
+            <img
+              src="/images/sshs-logo.jpg"
+              alt="SSHS Logo"
+              className="rounded-full mx-auto"
+              style={{
+                width: 90,
+                height: 90,
+                border: '3px solid #e8b400',
+                boxShadow: '0 0 32px rgba(232,180,0,0.3)',
+              }}
+            />
+            <div className="absolute -bottom-2 -right-2 bg-[#e8b400] text-[#0d1b6e] rounded-full p-1.5 border-2 border-[#060c2a]">
+              <ShieldCheck size={18} />
+            </div>
+          </div>
+          <h1 className="font-heading font-bold mt-6" style={{ fontSize: 32, color: '#e8b400' }}>
+            Inventory Gateway
           </h1>
-          <p className="font-body mt-1" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-            Sucat Senior High School · City of Muntinlupa
+          <p className="font-body mt-1 font-bold" style={{ fontSize: 16, color: 'var(--muted-text)' }}>
+            Sucat Senior High School Portal
           </p>
         </div>
 
-        {mode === 'select' ? (
-          /* Role selection */
-          <div className="space-y-3">
-            <button
-              onClick={handleAdminClick}
-              className="w-full rounded-2xl p-5 flex items-center gap-4 transition-all hover:scale-[1.02]"
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                cursor: 'pointer',
-                backdropFilter: 'blur(12px)',
-              }}
-            >
-              <div className="rounded-xl flex items-center justify-center" style={{ width: 48, height: 48, background: '#0d1b6e' }}>
-                <ShieldCheck size={24} color="#e8b400" />
-              </div>
-              <div className="flex-1 text-left">
-                <div className="font-body font-bold" style={{ fontSize: 16, color: 'white' }}>
-                  Admin / Property Office
-                </div>
-                <div className="font-body" style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                  Full access · Requires PIN
-                </div>
-              </div>
-              <ArrowRight size={20} color="rgba(255,255,255,0.3)" />
-            </button>
-
-            <button
-              onClick={handleBorrowerClick}
-              className="w-full rounded-2xl p-5 flex items-center gap-4 transition-all hover:scale-[1.02]"
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                cursor: 'pointer',
-                backdropFilter: 'blur(12px)',
-              }}
-            >
-              <div className="rounded-xl flex items-center justify-center" style={{ width: 48, height: 48, background: '#7c3aed' }}>
-                <Handshake size={24} color="white" />
-              </div>
-              <div className="flex-1 text-left">
-                <div className="font-body font-bold" style={{ fontSize: 16, color: 'white' }}>
-                  Borrow / Return Items
-                </div>
-                <div className="font-body" style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                  Borrow new items or return active borrows
-                </div>
-              </div>
-              <ArrowRight size={20} color="rgba(255,255,255,0.3)" />
-            </button>
-          </div>
-        ) : (
-          /* PIN entry */
-          <form onSubmit={handlePinSubmit} className="space-y-4">
-            <div
-              className={`rounded-2xl p-6 ${shake ? 'field-error' : ''}`}
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                backdropFilter: 'blur(12px)',
-              }}
-            >
-              <div className="flex items-center gap-3 mb-5">
-                <div className="rounded-xl flex items-center justify-center" style={{ width: 40, height: 40, background: pendingRole === 'admin' ? '#0d1b6e' : '#7c3aed' }}>
-                  <Lock size={20} color={pendingRole === 'admin' ? '#e8b400' : 'white'} />
-                </div>
-                <div>
-                  <div className="font-body font-bold" style={{ fontSize: 15, color: 'white' }}>
-                    {pendingRole === 'admin' ? 'Admin Login' : 'Staff Login'}
-                  </div>
-                  <div className="font-body" style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Enter your 4-digit PIN</div>
-                </div>
+        <div 
+          className={`rounded-[2rem] p-8 transition-all duration-300 ${shake ? 'animate-shake' : ''}`}
+          style={{
+            background: theme === 'dark' ? 'rgba(255,255,255,0.06)' : '#ffffff',
+            border: theme === 'dark' ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.1)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: theme === 'dark' ? '0 25px 50px -12px rgba(0,0,0,0.5)' : '0 20px 40px -8px rgba(0,0,0,0.12), 0 8px 16px -4px rgba(0,0,0,0.06)'
+          }}
+        >
+          {mode === 'select' ? (
+            <div className="space-y-6">
+              <div className="text-center space-y-2">
+                <h2 className="text-3xl font-heading font-bold text-slate-800 dark:text-white">Who is logging in?</h2>
+                <p className="text-base text-slate-600 dark:text-white/60 font-body">Select your name to continue</p>
               </div>
 
-              <input
-                type="password"
-                maxLength={4}
-                value={pin}
-                onChange={e => {
-                  setPin(e.target.value.replace(/\D/g, ''));
-                  setError('');
-                }}
-                autoFocus
-                placeholder="● ● ● ●"
-                className="w-full text-center py-3 rounded-xl font-body font-bold"
-                style={{
-                  fontSize: 28,
-                  letterSpacing: '12px',
-                  background: 'rgba(255,255,255,0.08)',
-                  border: `1.5px solid ${error ? '#dc2626' : 'rgba(255,255,255,0.15)'}`,
-                  color: 'white',
-                  outline: 'none',
-                }}
-              />
-              {error && (
-                <p className="font-body text-center mt-2" style={{ fontSize: 12, color: '#f87171' }}>{error}</p>
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="animate-spin" size={32} color="#e8b400" />
+                </div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-8 px-4 border border-dashed border-white/20 rounded-2xl">
+                  <p className="text-white/60 font-body text-sm">No users registered.</p>
+                  <p className="text-white/40 font-body text-xs mt-1 italic">Please contact Admin to create your account.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                  {users.map(user => (
+                    <button
+                      key={user.id}
+                      onClick={() => handleUserSelect(user)}
+                      className="w-full flex items-center gap-4 p-4 rounded-2xl transition-all hover:bg-white/10 active:scale-[0.98] border border-white/5 hover:border-white/20"
+                      style={{ background: 'rgba(255,255,255,0.03)' }}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${user.role === 'admin' ? 'bg-[#e8b400]/20 text-[#e8b400]' : 'bg-[#7c3aed]/20 text-[#7c3aed]'}`}>
+                        {user.role === 'admin' ? <ShieldCheck size={20} /> : <User size={20} />}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <div className="text-slate-800 dark:text-white font-body font-bold text-base">{user.fullName}</div>
+                        <div className="text-slate-500 dark:text-white/50 font-body text-xs uppercase tracking-wider font-bold">{user.role}</div>
+                      </div>
+                      <ChevronRight size={16} className="text-slate-300 dark:text-white/20" />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
+          ) : (
+            <form onSubmit={handlePinSubmit} className="space-y-6">
+              <div className="text-center space-y-2">
+                <div className="flex justify-center -space-x-3 mb-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border border-white/10 relative z-10 ${selectedUser?.role === 'admin' ? 'bg-[#0d1b6e]' : 'bg-[#7c3aed]'}`}>
+                    <User size={24} color="white" />
+                  </div>
+                  <div className="w-12 h-12 bg-[#060c2a] rounded-2xl flex items-center justify-center border border-white/10 translate-y-2">
+                    <Lock size={20} color="#e8b400" />
+                  </div>
+                </div>
+                <h2 className="text-2xl font-heading font-bold text-slate-800 dark:text-white">{selectedUser?.fullName}</h2>
+                <p className="text-xs text-[#e8b400] font-body uppercase tracking-widest font-bold">Identity Verification</p>
+              </div>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setMode('select')}
-                className="flex-1 py-3 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
-                style={{ fontSize: 14, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', border: 'none', cursor: 'pointer' }}
-              >
-                Back
-              </button>
-              <button
-                type="submit"
-                disabled={pin.length < 4}
-                className="flex-1 py-3 rounded-xl font-body font-bold transition-opacity hover:opacity-90"
-                style={{
-                  fontSize: 14,
-                  background: pin.length === 4 
-                    ? (pendingRole === 'admin' ? '#e8b400' : '#7c3aed') 
-                    : 'rgba(255,255,255,0.15)',
-                  color: pendingRole === 'admin' ? '#0d1b6e' : 'white',
-                  border: 'none',
-                  cursor: pin.length === 4 ? 'pointer' : 'not-allowed',
-                }}
-              >
-                Unlock
-              </button>
-            </div>
-          </form>
-        )}
+              <div className="space-y-4">
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={pin}
+                  onChange={e => {
+                    setPin(e.target.value.replace(/\D/g, ''));
+                    setError('');
+                  }}
+                  autoFocus
+                  placeholder="● ● ● ●"
+                  className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-4 text-slate-800 dark:text-white font-body text-center focus:outline-none focus:border-[#e8b400]/50 transition-all tracking-[1em] text-2xl"
+                />
+
+                {error && (
+                  <p className="text-red-400 text-xs text-center font-body">{error}</p>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="flex-1 bg-white/10 text-white/70 py-4 rounded-xl font-body font-bold hover:bg-white/20 transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={pin.length < 4}
+                    className="flex-[2] bg-[#e8b400] text-[#0d1b6e] py-4 rounded-xl font-body font-bold hover:bg-[#ffc800] transition-colors disabled:opacity-50"
+                  >
+                    Unlock
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+
+        <p className="text-center mt-10 text-slate-500 dark:text-white/40 text-sm font-body font-medium">
+          Authorized Access Only • Sucat Senior High School
+        </p>
       </div>
+
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-8px); }
+          75% { transform: translateX(8px); }
+        }
+        .animate-shake {
+          animation: shake 0.4s ease-in-out;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(232,180,0,0.3);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 }

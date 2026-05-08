@@ -188,7 +188,7 @@ export default function TransactionLog() {
         <table className="w-full">
           <thead className="sticky-thead">
             <tr style={{ background: 'transparent', borderBottom: '1px solid var(--card-border)' }}>
-              {['DATE & TIME', 'ITEM', 'CATEGORY', 'TYPE', 'QTY CHANGE', 'NEW STOCK', 'BY / NOTES', ''].map(h => (
+              {['DATE & TIME', 'ITEM', 'CATEGORY', 'TYPE', 'QTY CHANGE', 'NEW STOCK', 'STAFF / REMARKS', ''].map(h => (
                 <th key={h} className="text-left px-4 py-4 font-body uppercase" style={{ fontSize: 13, color: 'var(--fg-color)', fontWeight: 700, opacity: 0.9, letterSpacing: '0.5px' }}>{h}</th>
               ))}
             </tr>

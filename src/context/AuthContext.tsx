@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-export type UserRole = 'admin' | 'borrower';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { AppUser, UserRole } from '../types';
 
 interface AuthContextType {
+  user: AppUser | null;
   role: UserRole | null;
-  login: (role: UserRole) => void;
+  login: (user: AppUser) => void;
   logout: () => void;
 }
 
@@ -17,13 +17,20 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
 
-  const login = (r: UserRole) => setRole(r);
-  const logout = () => setRole(null);
+  const login = (u: AppUser) => {
+    setUser(u);
+    localStorage.setItem('sshs-user', JSON.stringify(u));
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('sshs-user');
+  };
 
   return (
-    <AuthContext.Provider value={{ role, login, logout }}>
+    <AuthContext.Provider value={{ user, role: user?.role || null, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

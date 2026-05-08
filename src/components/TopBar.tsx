@@ -3,7 +3,8 @@ import { useInventory } from '../context/InventoryContext';
 import { useAuth } from '../context/AuthContext';
 import { TransactionType, InventoryItem, getStatus } from '../types';
 import StatusBadge from './StatusBadge';
-import { Search, Plus, Menu, PackagePlus, PackageMinus, Handshake, LogOut, Upload } from 'lucide-react';
+import { Search, Plus, Menu, PackagePlus, PackageMinus, Handshake, LogOut, Upload, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 interface Props {
   onToggleSidebar: () => void;
@@ -29,6 +30,7 @@ const ALL_ACTION_BUTTONS: { type: TransactionType; label: string; icon: React.Re
 export default function TopBar({ onToggleSidebar, onQuickAction, onItemSelect }: Props) {
   const { currentPage, searchQuery, setSearchQuery, items } = useInventory();
   const { role, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const isAdmin = role === 'admin';
   const isInventory = ['cleaning', 'office', 'clinic'].includes(currentPage);
   const isDashboard = currentPage === 'dashboard';
@@ -83,7 +85,14 @@ export default function TopBar({ onToggleSidebar, onQuickAction, onItemSelect }:
       </div>
       <div className="flex-1" />
       <div className="topbar-actions flex-1 justify-end" style={{ alignItems: 'center' }}>
-        <div className="ml-auto pl-6 border-l border-slate-200 dark:border-slate-700 h-8 flex items-center">
+        <div className="ml-auto pl-6 border-l border-slate-200 dark:border-slate-700 h-8 flex items-center gap-3">
+          <button 
+            onClick={toggleTheme}
+            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <button
             onClick={logout}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"

@@ -1,8 +1,21 @@
 export type Category = 'cleaning' | 'office' | 'clinic';
 export type ItemStatus = 'in-stock' | 'low-stock' | 'out-of-stock';
 export type TransactionType = 'restock' | 'borrow' | 'use';
+export type UserRole = 'admin' | 'staff' | 'borrower';
+
+
 export type PageName = 'dashboard' | 'cleaning' | 'office' | 'clinic' | 'transactions' | 'reports' | 'settings' | 'portal';
+export interface AppUser {
+  id: string;
+  fullName: string;
+  employeeId: string;
+  role: UserRole;
+  pin: string;
+  createdAt: string;
+}
+
 export const UNITS = ['pcs', 'boxes', 'bottles', 'reams', 'sets'] as const;
+
 
 export interface InventoryItem {
   id: string;
@@ -14,6 +27,7 @@ export interface InventoryItem {
   notes: string;
   lastUpdated: string;
   location?: string;
+  isConsumable: boolean;
 }
 
 export interface Transaction {

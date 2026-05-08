@@ -6,7 +6,21 @@ import StatusBadge from '../components/StatusBadge';
 import AddEditItemModal from '../components/AddEditItemModal';
 import StockMovementModal from '../components/StockMovementModal';
 import BulkRestockModal from '../components/BulkRestockModal';
-import { Plus, Pencil, Trash2, Download, PackageSearch, Upload, Handshake, PackageMinus, PackagePlus, Home, ChevronDown } from 'lucide-react';
+import { 
+  PackageSearch, 
+  Plus, 
+  Handshake, 
+  PackagePlus, 
+  PackageMinus, 
+  Upload, 
+  Download, 
+  Pencil, 
+  Trash2, 
+  Home, 
+  ChevronDown,
+  ArrowLeft,
+  CornerDownLeft
+} from 'lucide-react';
 
 // --- Modern Custom Select Component ---
 function ModernSelect({ value, onChange, options, label }: { value: string, onChange: (v: string) => void, options: { value: string, label: string }[], label: string }) {
@@ -64,42 +78,70 @@ interface Props {
   onAddItem?: () => void;
   onImportCSV?: () => void;
   onStockMovement?: (type: 'restock' | 'use' | 'borrow') => void;
+  forcedType?: 'borrow' | 'use' | 'return';
 }
 
-export default function InventoryPage({ category, onAddItem, onImportCSV, onStockMovement }: Props) {
-  const { items, deleteItem, showToast, searchQuery, setSearchQuery, setCurrentPage: setGlobalPage } = useInventory();
-  const { role } = useAuth();
+export default function InventoryPage({ category, onAddItem, onImportCSV, onStockMovement, forcedType }: Props) {
+  const { items, transactions, deleteItem, showToast, searchQuery, setSearchQuery, setCurrentPage: setGlobalPage } = useInventory();
+  const { role, user } = useAuth();
   const isAdmin = role === 'admin';
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [transactionItem, setTransactionItem] = useState<InventoryItem | null>(null);
   const [showBulkRestock, setShowBulkRestock] = useState(false);
 
+  const handleDelete = async (item: InventoryItem) => {
+    if (!confirm(`Are you sure you want to delete "${item.name}"?\n\nThis action cannot be undone.`)) return;
+    try {
+      await deleteItem(item.id);
+      showToast(`"${item.name}" deleted successfully`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete item', 'error');
+    }
+  };
+
+  // Calculate user's active borrows for 'return' mode
+  const borrowedItemsMap = useMemo(() => {
+    if (!user?.fullName || forcedType !== 'return') return new Map<string, number>();
+    
+    const map = new Map<string, number>();
+    // Look at user's transactions
+    transactions
+      .filter(tx => tx.by === user.fullName)
+      .forEach(tx => {
+        const current = map.get(tx.itemId) || 0;
+        // In this system: Borrow = negative qtyChange, Return = positive qtyChange
+        // We want to know the net amount "out"
+        map.set(tx.itemId, current + tx.qtyChange);
+      });
+    return map;
+  }, [transactions, user?.fullName, forcedType]);
+
   const filtered = useMemo(() => {
     let list = items.filter(i => i.category === category);
+
+    // If in return mode, only show items the user has borrowed (net < 0)
+    if (forcedType === 'return') {
+      list = list.filter(item => {
+        const netBalance = borrowedItemsMap.get(item.id) || 0;
+        return netBalance < 0; // Negative balance means they owe items
+      });
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(i => i.name.toLowerCase().includes(q));
+      list = list.filter(i => i.name.toUpperCase().includes(q.toUpperCase()));
     }
     if (statusFilter !== 'all') {
       list = list.filter(i => getStatus(i) === statusFilter);
     }
-    return list;
-  }, [items, category, searchQuery, statusFilter]);
+    
+    // Always sort alphabetically by name
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [items, category, searchQuery, statusFilter, forcedType, borrowedItemsMap]);
 
 
   const paginated = filtered;
 
-  const handleDelete = async (item: InventoryItem) => {
-    if (confirm(`Delete "${item.name}"?`)) {
-      try {
-        await deleteItem(item.id);
-        showToast(`${item.name} deleted`, 'success');
-      } catch (err: any) {
-        showToast(err?.message || 'Delete failed', 'error');
-      }
-    }
-  };
 
   const exportCSV = () => {
     const headers = ['#', 'Item Name', 'Unit', 'Qty', 'Location', 'Status', 'Last Updated'];
@@ -131,30 +173,30 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
     <div className="p-4 md:p-8 space-y-6">
       {/* Borrower Navigation */}
       {!isAdmin && (
-        <div className="flex flex-col sm:flex-row items-center gap-4 mb-2">
+        <div className="flex flex-wrap items-center gap-3 mb-2">
           <button
             onClick={() => setGlobalPage('portal')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-body font-bold transition-all hover:bg-slate-100 dark:hover:bg-slate-800"
-            style={{ color: 'var(--heading-color)', border: '1px solid var(--card-border)' }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-body font-bold transition-all hover:bg-slate-200 dark:hover:bg-white/10"
+            style={{ color: 'var(--heading-color)', background: 'var(--topbar-bg)', border: '1px solid var(--topbar-border)' }}
           >
-            <Home size={18} /> Back to Portal
+            <ArrowLeft size={18} /> Back to Portal
           </button>
           
-          <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/50 w-full sm:w-auto">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setGlobalPage(cat.id)}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-body font-semibold text-sm transition-all`}
-                style={{
-                  background: category === cat.id ? 'white' : 'transparent',
-                  color: category === cat.id ? '#0d1b6e' : 'var(--muted-text)',
-                  boxShadow: category === cat.id ? '0 2px 8px rgba(0,0,0,0.08)' : 'none'
-                }}
-              >
-                {cat.label}
-              </button>
-            ))}
+          <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/50 w-full sm:w-auto overflow-x-auto">
+          {categories.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setGlobalPage(cat.id)}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-body font-semibold text-sm transition-all whitespace-nowrap`}
+              style={{
+                background: category === cat.id ? 'white' : 'transparent',
+                color: category === cat.id ? '#0d1b6e' : 'var(--muted-text)',
+                boxShadow: category === cat.id ? '0 2px 8px rgba(0,0,0,0.08)' : 'none'
+              }}
+            >
+              {cat.label}
+            </button>
+          ))}
           </div>
         </div>
       )}
@@ -169,13 +211,13 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
             className="w-full rounded-xl pl-9 pr-3 py-2.5 font-body"
             style={{ fontSize: 14, background: '#ffffff', border: '1px solid #0d1b6e', color: '#0d1b6e', outline: 'none' }}
             value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); setPageNumber(1); }}
+            onChange={e => { setSearchQuery(e.target.value); }}
           />
         </div>
         <ModernSelect 
           label="All Status"
           value={statusFilter}
-          onChange={val => { setStatusFilter(val); setPageNumber(1); }}
+          onChange={val => { setStatusFilter(val); }}
           options={[
             { value: 'all', label: 'All Status' },
             { value: 'in-stock', label: 'In Stock' },
@@ -185,45 +227,50 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
         />
         <div className="hidden sm:flex flex-1" />
         <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
-          {onAddItem && (
+          {isAdmin && (
             <button
               onClick={onAddItem}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl font-body font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ fontSize: 13, background: '#0d1b6e' }}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl font-body font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-md"
+              style={{ fontSize: 13, background: '#0d1b6e', border: 'none' }}
             >
               <Plus size={15} /> <span className="whitespace-nowrap">Add Item</span>
             </button>
           )}
           {isAdmin && (
             <button
-            onClick={() => setShowBulkRestock(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
-            style={{ fontSize: 13, background: '#15803d', color: 'white' }}
-          >
-            <PackagePlus size={14} /> <span className="whitespace-nowrap">Bulk Restock</span>
-          </button>
-          )}
-          <button
-            onClick={() => onStockMovement?.('borrow')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-body font-semibold transition-all hover:opacity-90"
-            style={{ fontSize: 13, background: 'transparent', border: '1px solid #7c3aed', color: '#7c3aed' }}
-          >
-            <Handshake size={14} /> <span className="whitespace-nowrap">Borrow</span>
-          </button>
-          {isAdmin && (
-            <button
-              onClick={() => onStockMovement?.('use')}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-body font-semibold transition-all hover:opacity-90"
-              style={{ fontSize: 13, background: 'transparent', border: '1px solid #d97706', color: '#d97706' }}
+              onClick={() => setShowBulkRestock(true)}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-md"
+              style={{ fontSize: 13, background: '#15803d', border: 'none' }}
             >
-              <PackageMinus size={14} /> <span className="whitespace-nowrap">Use</span>
+              <PackagePlus size={14} /> <span className="whitespace-nowrap">Bulk Restock</span>
             </button>
           )}
-          {onImportCSV && (
+
+        <div className="flex flex-wrap items-center gap-3">
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => onStockMovement?.('borrow')}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
+                style={{ fontSize: 13, background: '#7c3aed', border: 'none', color: '#ffffff' }}
+              >
+                <Handshake size={14} /> Borrow
+              </button>
+              <button
+                onClick={() => onStockMovement?.('use')}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
+                style={{ fontSize: 13, background: '#d97706', border: 'none', color: '#ffffff' }}
+              >
+                <PackageMinus size={14} /> Use
+              </button>
+            </>
+          )}
+
+          {isAdmin && onImportCSV && (
             <button
               onClick={onImportCSV}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-body font-semibold transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-              style={{ fontSize: 13, background: 'transparent', border: '1px solid var(--heading-color)', color: 'var(--heading-color)' }}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
+              style={{ fontSize: 13, background: '#0d1b6e', border: 'none', color: '#ffffff' }}
               title="Import inventory from CSV"
             >
               <Upload size={14} /> <span className="whitespace-nowrap">Import CSV</span>
@@ -232,12 +279,13 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
           {isAdmin && (
             <button
               onClick={exportCSV}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-body font-semibold transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-              style={{ fontSize: 13, background: 'transparent', border: '1px solid var(--heading-color)', color: 'var(--heading-color)' }}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
+              style={{ fontSize: 13, background: '#0d1b6e', border: 'none', color: '#ffffff' }}
             >
               <Download size={14} /> <span className="whitespace-nowrap">Export CSV</span>
             </button>
           )}
+        </div>
         </div>
       </div>
 
@@ -257,12 +305,18 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-16">
-                  <div className="flex flex-col items-center gap-2">
-                    <PackageSearch size={48} style={{ color: 'var(--muted-text)', opacity: 0.4 }} />
-                    <p className="font-body font-semibold" style={{ fontSize: 16, color: 'var(--fg-color)' }}>No Items Found</p>
-                    <p className="font-body" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
-                      {searchQuery ? `No results matching "${searchQuery}"` : 'Add your first item to get started'}
+                <td colSpan={8} className="text-center py-24">
+                  <div className="flex flex-col items-center justify-center gap-3 text-center">
+                    <PackageSearch size={64} style={{ color: forcedType === 'return' ? '#15803d' : 'var(--muted-text)', opacity: forcedType === 'return' ? 0.6 : 0.3 }} />
+                    <h3 className="font-heading font-bold" style={{ fontSize: 24, color: forcedType === 'return' ? '#15803d' : 'var(--fg-color)' }}>
+                      {forcedType === 'return' ? 'No Items to Return' : 'No Items Found'}
+                    </h3>
+                    <p className="font-body text-base" style={{ color: 'var(--muted-text)' }}>
+                      {forcedType === 'return' 
+                        ? 'Your currently borrowed items will appear here when you need to return them.' 
+                        : searchQuery 
+                          ? `No results matching "${searchQuery}"` 
+                          : 'Start adding items to build your inventory.'}
                     </p>
                   </div>
                 </td>
@@ -299,22 +353,32 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
                   <td className="px-4 py-4">
                     <div className="flex gap-2">
                       {[
-                        { color: '#7c3aed', icon: <Plus size={14} color="white" />, tip: isAdmin ? 'Restock / Use / Borrow' : 'Borrow item', onClick: () => setTransactionItem(item), show: true },
-                        { color: '#0d1b6e', icon: <Pencil size={14} color="white" />, tip: 'Edit item', onClick: () => setEditingItem(item), show: isAdmin },
-                        { color: '#b71c1c', icon: <Trash2 size={14} color="white" />, tip: 'Delete item', onClick: () => handleDelete(item), show: isAdmin },
+                        { 
+                          color: forcedType === 'use' ? '#d97706' : forcedType === 'return' ? '#15803d' : '#7c3aed', 
+                          label: forcedType === 'use' ? 'USE ITEM' : forcedType === 'return' ? 'RETURN' : 'BORROW',
+                          tip: forcedType === 'use' ? 'Use consumable' : forcedType === 'return' ? 'Return item' : 'Borrow item', 
+                          onClick: () => setTransactionItem(item), 
+                          show: !isAdmin 
+                        },
+                        { color: '#15803d', label: 'RESTOCK', tip: 'Add stock', onClick: () => { setTransactionItem(item); }, show: isAdmin },
+                        { color: '#0d1b6e', label: 'EDIT', tip: 'Edit details', onClick: () => setEditingItem(item), show: isAdmin },
+                        { color: '#b71c1c', label: 'DELETE', tip: 'Remove item', onClick: () => handleDelete(item), show: isAdmin },
                       ].filter(b => b.show).map((btn, i) => (
                         <div key={i} className="relative group">
                           <button
                             onClick={btn.onClick}
-                            className="flex items-center justify-center rounded-full transition-opacity hover:opacity-80"
+                            className={`flex items-center justify-center rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md ${!btn.icon ? 'px-4 py-2' : ''}`}
                             style={{ 
-                              width: 32, height: 32, 
+                              width: btn.icon ? 42 : 'auto',
+                              height: 42,
                               background: btn.color,
                               border: 'none',
-                              color: '#ffffff'
+                              color: '#ffffff',
+                              fontSize: btn.icon ? 14 : 12,
+                              letterSpacing: '0.05em'
                             }}
                           >
-                            {btn.icon}
+                            {btn.label || btn.icon}
                           </button>
                           <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-md text-white font-body opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg"
                             style={{ fontSize: 11, background: '#0f172a', zIndex: 10 }}>
@@ -338,7 +402,7 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
       {transactionItem && (
         <StockMovementModal
           item={transactionItem}
-          defaultType={isAdmin ? 'restock' : 'borrow'}
+          defaultType={isAdmin ? (forcedType || 'restock') : (forcedType || 'borrow')}
           onClose={() => setTransactionItem(null)}
         />
       )}

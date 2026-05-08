@@ -3,63 +3,75 @@
 @tailwind utilities;
 
 :root {
-  --app-bg: #f4f6f8;
-  --topbar-bg: rgba(255, 255, 255, 0.95);
-  --topbar-border: rgba(0, 0, 0, 0.03);
+  --app-bg: #f1f5f9;
+  --topbar-bg: rgba(255, 255, 255, 0.85);
+  --topbar-border: rgba(0, 0, 0, 0.08);
   --card-bg: #ffffff;
-  --card-border: rgba(0, 0, 0, 0.04);
+  --card-border: rgba(0, 0, 0, 0.08);
   --dropdown-bg: #ffffff;
-  --card-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.02);
-  --table-header-bg: rgba(0, 0, 0, 0.015);
-  --table-row-hover: rgba(0, 0, 0, 0.02);
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --table-header-bg: rgba(0, 0, 0, 0.02);
+  --table-row-hover: rgba(0, 0, 0, 0.03);
   --input-bg: #f8fafc;
-  --input-border: #e2e8f0;
-  --fg-color: #475569;
+  --input-border: #d1d5db;
+  --fg-color: #1e293b;
   --heading-color: #0d1b6e;
-  --muted-text: #94a3b8;
+  --muted-text: #475569;
   --donut-track: #f1f5f9;
   --status-in-stock-bg: #dcfce7;
   --status-in-stock-text: #15803d;
   --status-in-stock-dot: #15803d;
-  --status-low-stock-bg: #fef3c7;
-  --status-low-stock-text: #f59e0b;
-  --status-low-stock-dot: #f59e0b;
+  --status-low-stock-bg: #ffedd5;
+  --status-low-stock-text: #c2410c;
+  --status-low-stock-dot: #ea580c;
   --status-out-of-stock-bg: #fee2e2;
   --status-out-of-stock-text: #dc2626;
   --status-out-of-stock-dot: #dc2626;
   --location-bg: rgba(13,27,110,0.08);
   --location-text: #0d1b6e;
   --location-border: rgba(13,27,110,0.15);
+  --sidebar-bg: #ffffff;
+  --sidebar-text: #475569;
+  --sidebar-border: #e2e8f0;
+  --sidebar-item-hover: #f1f5f9;
+  --sidebar-item-active: #0d1b6e;
+  --sidebar-item-active-text: #ffffff;
 }
 
 .dark {
-  --app-bg: #020617;
-  --topbar-bg: rgba(2, 6, 23, 0.95);
-  --topbar-border: rgba(255, 255, 255, 0.03);
-  --card-bg: #0f172a;
-  --card-border: rgba(255, 255, 255, 0.05);
-  --dropdown-bg: #0f172a;
-  --card-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.3);
-  --table-header-bg: rgba(255, 255, 255, 0.015);
-  --table-row-hover: rgba(255, 255, 255, 0.03);
-  --input-bg: rgba(0, 0, 0, 0.2);
-  --input-border: rgba(255, 255, 255, 0.1);
-  --fg-color: #f1f5f9;
+  --app-bg: #030816;
+  --topbar-bg: rgba(3, 8, 22, 0.9);
+  --topbar-border: rgba(255, 255, 255, 0.1);
+  --card-bg: #0a1128;
+  --card-border: rgba(255, 255, 255, 0.1);
+  --dropdown-bg: #0a1128;
+  --card-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.5);
+  --table-header-bg: rgba(255, 255, 255, 0.05);
+  --table-row-hover: rgba(255, 255, 255, 0.04);
+  --input-bg: rgba(255, 255, 255, 0.03);
+  --input-border: rgba(255, 255, 255, 0.15);
+  --fg-color: #e2e8f0;
   --heading-color: #ffffff;
-  --muted-text: #64748b;
-  --donut-track: rgba(255, 255, 255, 0.05);
-  --status-in-stock-bg: rgba(74,222,128,0.15);
+  --muted-text: #94a3b8;
+  --donut-track: rgba(255, 255, 255, 0.08);
+  --status-in-stock-bg: rgba(34, 197, 94, 0.2);
   --status-in-stock-text: #4ade80;
-  --status-in-stock-dot: #4ade80;
-  --status-low-stock-bg: rgba(251,191,36,0.15);
+  --status-in-stock-dot: #22c55e;
+  --status-low-stock-bg: rgba(245, 158, 11, 0.2);
   --status-low-stock-text: #fbbf24;
-  --status-low-stock-dot: #fbbf24;
-  --status-out-of-stock-bg: rgba(248,113,113,0.15);
+  --status-low-stock-dot: #f59e0b;
+  --status-out-of-stock-bg: rgba(239, 68, 68, 0.2);
   --status-out-of-stock-text: #f87171;
-  --status-out-of-stock-dot: #f87171;
-  --location-bg: rgba(240,208,128,0.12);
-  --location-text: #f0d080;
-  --location-border: rgba(240,208,128,0.25);
+  --status-out-of-stock-dot: #ef4444;
+  --location-bg: rgba(232, 180, 0, 0.15);
+  --location-text: #e8b400;
+  --location-border: rgba(232, 180, 0, 0.3);
+  --sidebar-bg: #0a1128;
+  --sidebar-text: rgba(255, 255, 255, 0.7);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-item-hover: rgba(255, 255, 255, 0.05);
+  --sidebar-item-active: #e8b400;
+  --sidebar-item-active-text: #0d1b6e;
   color-scheme: dark;
 }
 
@@ -235,7 +247,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   bottom: 0;
   width: 260px;
   z-index: 100;
-  transition: transform 0.25s ease;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  transition: transform 0.25s ease, background 0.3s ease;
 }
 
 .sidebar-close {

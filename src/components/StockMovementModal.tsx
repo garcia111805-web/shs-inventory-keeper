@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useInventory } from '../context/InventoryContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -25,22 +25,32 @@ const TYPE_CONFIG: { type: TransactionType; label: string; color: string }[] = [
 
 export default function StockMovementModal({ item: prefilledItem, defaultType, onClose }: Props) {
   const { items, addTransaction, showToast } = useInventory();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
 
   const isAdmin = role === 'admin';
-  const availableTypes = isAdmin 
-    ? TYPE_CONFIG 
-    : TYPE_CONFIG.filter(tc => tc.type === 'borrow');
-
+  
   // Item selection
   const [search, setSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(prefilledItem || null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  const availableTypes = useMemo(() => {
+    let base = isAdmin ? TYPE_CONFIG : TYPE_CONFIG.filter(tc => tc.type !== 'restock');
+    if (selectedItem) {
+      if (selectedItem.isConsumable) {
+        return base.filter(tc => tc.type !== 'borrow');
+      } else {
+        return base.filter(tc => tc.type !== 'use');
+      }
+    }
+    return base;
+  }, [isAdmin, selectedItem]);
+
+
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType || 'restock');
   const [qty, setQty] = useState('');
-  const [by, setBy] = useState('');
+  const [by, setBy] = useState(user?.fullName || '');
   const [returnDate, setReturnDate] = useState('');
   const [notes, setNotes] = useState('');
   const [datePart, setDatePart] = useState(new Date().toISOString().slice(0, 10));
@@ -50,10 +60,24 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
   const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Removed auto-switching to give user full control over Borrow vs Use
+  /*
+  useEffect(() => {
+    if (selectedItem) {
+      if (selectedItem.isConsumable && type === 'borrow') {
+        setType('use');
+      } else if (!selectedItem.isConsumable && type === 'use') {
+        setType('borrow');
+      }
+    }
+  }, [selectedItem, type]);
+  */
+
   const filtered = useMemo(() => {
     if (!search) return items;
     const q = search.toLowerCase();
-    return items.filter(i => i.name.toLowerCase().includes(q));
+    return items.filter(i => i.name.toUpperCase().includes(q.toUpperCase()));
+
   }, [items, search]);
 
   const qtyNum = parseInt(qty) || 0;
@@ -100,7 +124,8 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
     }
   };
 
-  const activeColor = TYPE_CONFIG.find(t => t.type === type)!.color;
+  const activeColor = TYPE_CONFIG.find(t => t.type === type)?.color || '#7c3aed';
+
 
   return (
     <ModalOverlay onClose={onClose}>
@@ -114,9 +139,9 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
         </div>
         <h3
           className="font-heading font-bold"
-          style={{ fontSize: 18, color: 'var(--heading-color)' }}
+          style={{ fontSize: 24, color: 'var(--heading-color)' }}
         >
-          New Transaction
+          {type === 'borrow' ? 'Borrow Item' : type === 'use' ? 'Use Item' : 'Restock Item'}
         </h3>
       </div>
 
@@ -311,7 +336,9 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
             className={fieldClass(isByValid)}
             value={by}
             onChange={e => setBy(e.target.value)}
+            disabled={!isAdmin}
             placeholder="Full name"
+            style={!isAdmin ? { background: 'rgba(0,0,0,0.05)', cursor: 'not-allowed', opacity: 0.8 } : {}}
           />
         </div>
 
@@ -385,18 +412,17 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
         <button
           onClick={handleSubmit}
           disabled={!canSubmit || loading}
-          className="px-4 py-2 rounded-xl font-body font-semibold transition-all"
+          className="px-8 py-3 rounded-xl font-body font-bold transition-all shadow-lg active:scale-95"
           style={{
-            fontSize: 14,
+            fontSize: 16,
             background: activeColor,
             color: 'white',
             opacity: canSubmit && !loading ? 1 : 0.7,
             cursor: canSubmit && !loading ? 'pointer' : 'not-allowed',
             border: 'none',
-            transition: 'background 0.25s, opacity 0.2s',
           }}
         >
-          {loading ? 'Processing...' : `Confirm ${type.charAt(0).toUpperCase() + type.slice(1)}`}
+          {loading ? 'Processing...' : `Confirm ${(type || 'restock').charAt(0).toUpperCase() + (type || 'restock').slice(1)}`}
         </button>
       </div>
     </ModalOverlay>

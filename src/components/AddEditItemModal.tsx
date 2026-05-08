@@ -3,6 +3,7 @@ import { useInventory } from '../context/InventoryContext';
 import { InventoryItem, Category, UNITS } from '../types';
 import { useLocations } from '../hooks/useLocations';
 import ModalOverlay from './ModalOverlay';
+import { formatItemName } from '../lib/utils';
 
 interface Props {
   item?: InventoryItem | null;
@@ -22,10 +23,12 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
   const [threshold, setThreshold] = useState(item?.lowStockThreshold?.toString() || '3');
   const [notes, setNotes] = useState(item?.notes || '');
   const [location, setLocation] = useState(item?.location || '');
+  const [isConsumable, setIsConsumable] = useState<boolean>(item?.isConsumable ?? true);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     if (!name.trim() || loading) return;
+    const formattedName = formatItemName(name);
     const qtyVal = parseInt(quantity) || 0;
     if (qtyVal < 0) {
       showToast('Quantity cannot be negative', 'warning');
@@ -36,26 +39,28 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
       if (isEdit && item) {
         await updateItem({
           ...item,
-          name: name.trim(),
+          name: formattedName,
           category,
           unit,
           quantity: parseInt(quantity) || 0,
           lowStockThreshold: parseInt(threshold) || 3,
           notes,
           location: location || undefined,
+          isConsumable,
         });
-        showToast(`${name} updated`, 'success');
+        showToast(`${formattedName} updated`, 'success');
       } else {
         await addItem({
-          name: name.trim(),
+          name: formattedName,
           category,
           unit,
           quantity: parseInt(quantity) || 0,
           lowStockThreshold: parseInt(threshold) || 3,
           notes,
           location: location || undefined,
+          isConsumable,
         });
-        showToast(`${name} added`, 'success');
+        showToast(`${formattedName} added`, 'success');
       }
       onClose();
     } catch (err: any) {
@@ -94,6 +99,22 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
               {locations.map(loc => (
                 <option key={loc.id} value={loc.name}>{loc.name}</option>
               ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-3">
+            <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              Item Classification
+              <span title="Consumables can only be 'Used' (deducted). Assets can only be 'Borrowed' (requires return)." style={{ cursor: 'help', fontSize: 13 }}>ℹ️</span>
+            </label>
+            <select
+              className="modal-input"
+              value={isConsumable ? 'true' : 'false'}
+              onChange={e => setIsConsumable(e.target.value === 'true')}
+            >
+              <option value="true">Consumable (e.g. Soap, Alcohol, Paper)</option>
+              <option value="false">Non-consumable Asset (e.g. Broom, Monitor)</option>
             </select>
           </div>
         </div>
