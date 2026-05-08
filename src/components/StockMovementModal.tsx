@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useInventory } from '../context/InventoryContext';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   InventoryItem,
   TransactionType,
@@ -24,6 +25,7 @@ const TYPE_CONFIG: { type: TransactionType; label: string; color: string }[] = [
 ];
 
 export default function StockMovementModal({ item: prefilledItem, defaultType, onClose }: Props) {
+  const { theme } = useTheme();
   const { items, addTransaction, showToast } = useInventory();
   const { role, user } = useAuth();
 
@@ -292,7 +294,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
                 setTimePart(new Date().toTimeString().slice(0, 5));
               }}
               className="text-xs font-semibold hover:opacity-70 transition-opacity"
-              style={{ color: '#0d1b6e' }}
+              style={{ color: theme === 'dark' ? '#e8b400' : '#0d1b6e' }}
             >
               Set to Now
             </button>

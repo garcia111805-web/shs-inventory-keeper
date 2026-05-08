@@ -339,7 +339,7 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
                   </td>
                   <td className="px-4 py-4 font-body" style={{ fontSize: 14, color: 'var(--fg-color)', opacity: 0.9 }}>
                     {item.location ? (
-                      <span className="px-2 py-0.5 rounded-full font-body" style={{ fontSize: 11, background: 'var(--location-bg)', color: 'var(--location-text)', border: '1px solid var(--location-border)' }}>
+                      <span className="px-3 py-1 rounded-full font-body font-bold whitespace-nowrap shadow-sm" style={{ fontSize: 11, background: 'var(--location-bg)', color: 'var(--location-text)', border: '1px solid var(--location-border)' }}>
                         {item.location}
                       </span>
                     ) : (

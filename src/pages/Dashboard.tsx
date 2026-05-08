@@ -187,7 +187,7 @@ export default function Dashboard() {
                   const typeColors: Record<string, string> = { restock: '#15803d', borrow: '#7c3aed', use: '#d97706' };
                   return (
                     <div key={tx.id} className="flex items-center gap-2.5 px-2 py-2 rounded-lg table-row-hover">
-                      <span className="font-body font-semibold px-2 py-0.5 rounded-full text-white" style={{ fontSize: 10, background: typeColors[tx.type], whiteSpace: 'nowrap', minWidth: 50, textAlign: 'center' }}>
+                      <span className="font-body font-bold px-3 py-1 rounded-full text-white shadow-sm" style={{ fontSize: 10, background: typeColors[tx.type], whiteSpace: 'nowrap', minWidth: 60, textAlign: 'center' }}>
                         {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
                       </span>
                       <div className="flex-1 min-w-0">

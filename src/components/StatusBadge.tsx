@@ -13,7 +13,7 @@ const config: Record<ItemStatus, { label: string }> = {
 export default function StatusBadge({ status }: StatusBadgeProps) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold font-body"
+      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold font-body whitespace-nowrap shadow-sm"
       style={{
         fontSize: '12px',
         background: `var(--status-${status}-bg)`,

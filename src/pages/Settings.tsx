@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocations } from '../hooks/useLocations';
 import { useUsers } from '../hooks/useUsers';
 import { useInventory } from '../context/InventoryContext';
-import { MapPin, Plus, Pencil, Trash2, Check, X, Settings, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Check, X, Settings, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck, ChevronDown } from 'lucide-react';
 import { UserRole } from '../types';
 
 
@@ -85,6 +85,56 @@ function EntryRow({ id, name, onEdit, onDelete }: EntryRowProps) {
           >
             {busy ? <Loader2 size={13} color="white" className="animate-spin" /> : <Trash2 size={13} color="white" />}
           </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ModernSelect({ value, onChange, options, label }: { value: string, onChange: (v: string) => void, options: { value: string, label: string }[], label: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const currentLabel = options.find(o => o.value === value)?.label || label;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl font-body font-semibold transition-all"
+        style={{ 
+          fontSize: 14, 
+          background: 'var(--input-bg)', 
+          border: '1px solid var(--card-border)', 
+          color: 'var(--fg-color)',
+          boxShadow: isOpen ? '0 0 0 2px rgba(124, 58, 237, 0.2)' : 'none'
+        }}
+      >
+        <span className="truncate">{currentLabel}</span>
+        <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute top-full left-0 right-0 mt-2 rounded-xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200"
+            style={{ background: 'var(--dropdown-bg)', border: '1px solid var(--card-border)', minWidth: 180 }}>
+            <div className="max-h-60 overflow-y-auto py-1">
+              {options.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                  className="w-full text-left px-4 py-3 font-body transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                  style={{ 
+                    fontSize: 14, 
+                    color: value === opt.value ? '#7c3aed' : 'var(--fg-color)',
+                    background: value === opt.value ? 'rgba(124, 58, 237, 0.08)' : 'transparent',
+                    fontWeight: value === opt.value ? 700 : 500
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </>
       )}
     </div>
@@ -219,12 +269,8 @@ function UserManagementSection() {
   const [isAdding, setIsAdding] = useState(false);
 
   const handleAddUser = async () => {
-    if (!fullName || !pin) {
-      showToast('Please fill in Name and PIN', 'error');
-      return;
-    }
-    if (pin.length !== 4) {
-      showToast('PIN must be exactly 4 digits', 'error');
+    if (!fullName) {
+      showToast('Please fill in the Name', 'error');
       return;
     }
 
@@ -232,7 +278,18 @@ function UserManagementSection() {
     try {
       // Use timestamp if employeeId is empty to keep it unique in DB if needed
       const finalId = employeeId || `USER-${Date.now()}`;
-      await addUser({ fullName, employeeId: finalId, pin, role });
+      
+      // For staff, we don't need a PIN from the user, but DB might require it.
+      // We'll use '0000' as a background placeholder for staff.
+      const finalPin = role === 'admin' ? pin : '0000';
+      
+      if (role === 'admin' && (!pin || pin.length !== 4)) {
+        showToast('Admins must have a 4-digit PIN', 'error');
+        setIsAdding(false);
+        return;
+      }
+
+      await addUser({ fullName, employeeId: finalId, pin: finalPin, role });
       setFullName('');
       setEmployeeId('');
       setPin('');
@@ -261,8 +318,15 @@ function UserManagementSection() {
         <Users size={20} style={{ color: '#7c3aed' }} />
         <h2 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>User Accounts</h2>
         <span
-          className="ml-auto font-body font-bold rounded-full px-2.5 py-0.5 text-xs"
-          style={{ background: 'rgba(124,58,237,0.12)', color: '#7c3aed' }}
+          className="ml-auto font-body font-bold rounded-full flex items-center justify-center shadow-sm"
+          style={{ 
+            background: 'rgba(124,58,237,0.12)', 
+            color: '#7c3aed', 
+            fontSize: 10,
+            minWidth: 24,
+            height: 24,
+            padding: '0 8px'
+          }}
         >
           {users.length}
         </span>
@@ -299,26 +363,29 @@ function UserManagementSection() {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-wider opacity-50 ml-1">Account Role</label>
-            <select
-              className="modal-input w-full"
-              value={role}
-              onChange={e => setRole(e.target.value as UserRole)}
-            >
-              <option value="borrower">Staff / Borrower</option>
-              <option value="admin">Admin / Property Office</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider opacity-50 ml-1">4-Digit PIN</label>
-            <input
-              className="modal-input w-full"
-              type="password"
-              maxLength={4}
-              placeholder="● ● ● ●"
-              value={pin}
-              onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+            <ModernSelect 
+              label="Select Role"
+              value={role} 
+              onChange={(v) => setRole(v as UserRole)}
+              options={[
+                { value: 'borrower', label: 'Staff' },
+                { value: 'admin', label: 'Admin' },
+              ]}
             />
           </div>
+          {role === 'admin' && (
+            <div className="space-y-1 animate-in fade-in slide-in-from-right-2 duration-300">
+              <label className="text-[10px] font-bold uppercase tracking-wider opacity-50 ml-1">4-Digit PIN</label>
+              <input
+                className="modal-input w-full"
+                type="password"
+                maxLength={4}
+                placeholder="● ● ● ●"
+                value={pin}
+                onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+              />
+            </div>
+          )}
         </div>
 
         <button

@@ -22,7 +22,7 @@ export default function LoginGateway() {
         .from('app_users')
         .select('*')
         .order('full_name');
-      
+
       if (!error && data) {
         setUsers(data.map(d => ({
           id: d.id,
@@ -86,7 +86,7 @@ export default function LoginGateway() {
     >
       {/* Top Toggle */}
       <div className="absolute top-6 right-6">
-        <button 
+        <button
           onClick={toggleTheme}
           className="w-12 h-12 rounded-2xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all shadow-sm"
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
@@ -122,7 +122,7 @@ export default function LoginGateway() {
           </p>
         </div>
 
-        <div 
+        <div
           className={`rounded-[2rem] p-8 transition-all duration-300 ${shake ? 'animate-shake' : ''}`}
           style={{
             background: theme === 'dark' ? 'rgba(255,255,255,0.06)' : '#ffffff',
