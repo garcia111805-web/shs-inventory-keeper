@@ -83,6 +83,12 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    const id = `toast-${Date.now()}`;
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+  }, []);
+
   const refreshData = useCallback(async () => {
     try {
       const [itemsRes, txRes] = await Promise.all([
@@ -98,6 +104,45 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       console.error('Fetch error:', err);
       throw err;
     }
+  }, []);
+
+  const addTransaction = useCallback(async (tx: Omit<Transaction, 'id'>) => {
+    if (tx.newStock < 0) {
+      throw new Error(`Insufficient stock for ${tx.itemName}. Operation cancelled.`);
+    }
+    // 1. Update item quantity
+    const { error: updateErr } = await supabase
+      .from('items')
+      .update({
+        quantity: tx.newStock,
+        last_updated: new Date().toISOString().split('T')[0],
+      })
+      .eq('id', tx.itemId);
+
+    if (updateErr) {
+      console.error('Update stock error:', updateErr);
+      throw updateErr;
+    }
+
+    // 2. Insert transaction record
+    const { error: txErr } = await supabase.from('transactions').insert({
+      item_id: tx.itemId,
+      item_name: tx.itemName.toUpperCase(),
+      category: tx.category,
+      type: tx.type,
+      qty_change: tx.qtyChange,
+      new_stock: tx.newStock,
+      staff_name: tx.by,
+      return_date: tx.returnDate || null,
+      notes: tx.notes || '',
+      date: tx.date,
+    });
+
+    if (txErr) {
+      console.error('Insert transaction error:', txErr);
+      throw txErr;
+    }
+    // Realtime handles UI updates
   }, []);
 
   // ─── Initial fetch ───
@@ -143,7 +188,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
     };
   }, []);
-
 
   // ─── CRUD operations via Supabase ───
   const addItem = useCallback(async (data: Omit<InventoryItem, 'id' | 'lastUpdated'>): Promise<{ merged: boolean }> => {
@@ -237,45 +281,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const addTransaction = useCallback(async (tx: Omit<Transaction, 'id'>) => {
-    if (tx.newStock < 0) {
-      throw new Error(`Insufficient stock for ${tx.itemName}. Operation cancelled.`);
-    }
-    // 1. Update item quantity
-    const { error: updateErr } = await supabase
-      .from('items')
-      .update({
-        quantity: tx.newStock,
-        last_updated: new Date().toISOString().split('T')[0],
-      })
-      .eq('id', tx.itemId);
-
-    if (updateErr) {
-      console.error('Update stock error:', updateErr);
-      throw updateErr;
-    }
-
-    // 2. Insert transaction record
-    const { error: txErr } = await supabase.from('transactions').insert({
-      item_id: tx.itemId,
-      item_name: tx.itemName.toUpperCase(),
-      category: tx.category,
-      type: tx.type,
-      qty_change: tx.qtyChange,
-      new_stock: tx.newStock,
-      staff_name: tx.by,
-      return_date: tx.returnDate || null,
-      notes: tx.notes || '',
-      date: tx.date,
-    });
-
-    if (txErr) {
-      console.error('Insert transaction error:', txErr);
-      throw txErr;
-    }
-    // Realtime handles UI updates
-  }, []);
-
   const updateTransaction = useCallback(async (updated: Transaction) => {
     const { error } = await supabase.from('transactions').update({
       staff_name: updated.by,
@@ -322,12 +327,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
     // 3. Instantly remove from local UI to feel responsive
     setTransactions(prev => prev.filter(t => t.id !== tx.id));
-  }, []);
-
-  const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' = 'success') => {
-    const id = `toast-${Date.now()}`;
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   }, []);
 
   return (

@@ -1,6 +1,6 @@
 import { useInventory } from '../context/InventoryContext';
 import { getStatus, Category } from '../types';
-import { Package, CheckCircle, AlertTriangle, XCircle, MousePointerClick } from 'lucide-react';
+import { Package, CheckCircle, AlertTriangle, XCircle, MousePointerClick, PackagePlus, PackageMinus, Handshake, CornerDownLeft } from 'lucide-react';
 import { useCategories } from '../hooks/useCategories';
 
 export default function Dashboard() {
