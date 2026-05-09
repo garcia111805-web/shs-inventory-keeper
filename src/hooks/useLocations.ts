@@ -24,7 +24,7 @@ export function useLocations() {
     fetchLocations();
 
     const channel = supabase
-      .channel('locations-realtime')
+      .channel(`locations-realtime-${Math.random()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, () => {
         fetchLocations();
       })

@@ -24,7 +24,7 @@ export function useUnits() {
     fetchUnits();
 
     const channel = supabase
-      .channel('units-realtime')
+      .channel(`units-realtime-${Math.random()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => {
         fetchUnits();
       })

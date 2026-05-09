@@ -24,7 +24,7 @@ export function useCategories() {
     fetchCategories();
 
     const channel = supabase
-      .channel('categories-realtime')
+      .channel(`categories-realtime-${Math.random()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
         fetchCategories();
       })

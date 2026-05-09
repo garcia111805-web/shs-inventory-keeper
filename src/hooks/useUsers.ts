@@ -31,7 +31,7 @@ export function useUsers() {
     fetchUsers();
 
     const channel = supabase
-      .channel('app_users-realtime')
+      .channel(`app_users-realtime-${Math.random()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, () => {
         fetchUsers();
       })
