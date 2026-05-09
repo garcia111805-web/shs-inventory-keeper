@@ -22,6 +22,7 @@ const TYPE_CONFIG: { type: TransactionType; label: string; color: string }[] = [
   { type: 'restock', label: 'Restock', color: '#15803d' },
   { type: 'use', label: 'Use', color: '#d97706' },
   { type: 'borrow', label: 'Borrow', color: '#7c3aed' },
+  { type: 'return', label: 'Return', color: '#16a34a' },
 ];
 
 export default function StockMovementModal({ item: prefilledItem, defaultType, onClose }: Props) {
@@ -84,12 +85,12 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
 
   const qtyNum = parseInt(qty) || 0;
   const newStock =
-    type === 'restock'
+    (type === 'restock' || type === 'return')
       ? (selectedItem?.quantity ?? 0) + qtyNum
       : (selectedItem?.quantity ?? 0) - qtyNum;
 
   const isQtyValid =
-    qtyNum > 0 && (type === 'restock' || newStock >= 0);
+    qtyNum > 0 && (type === 'restock' || type === 'return' || newStock >= 0);
   const isByValid = by.trim().length > 0;
   const isReturnValid = type !== 'borrow' || returnDate !== '';
   const canSubmit =
@@ -108,7 +109,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
         itemName: selectedItem.name,
         category: selectedItem.category,
         type,
-        qtyChange: type === 'restock' ? qtyNum : -qtyNum,
+        qtyChange: (type === 'restock' || type === 'return') ? qtyNum : -qtyNum,
         newStock,
         by: by.trim(),
         returnDate: type === 'borrow' ? returnDate : undefined,

@@ -41,7 +41,7 @@ export default function ReturnItemsModal({ transaction, onClose }: Props) {
         itemId: transaction.itemId,
         itemName: transaction.itemName,
         category: transaction.category,
-        type: 'restock',
+        type: 'return',
         qtyChange: returnQty,
         newStock: itemStock + returnQty,
         by: transaction.by,

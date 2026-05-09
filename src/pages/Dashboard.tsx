@@ -1,16 +1,18 @@
 import { useInventory } from '../context/InventoryContext';
 import { getStatus, Category } from '../types';
 import { Package, CheckCircle, AlertTriangle, XCircle, MousePointerClick } from 'lucide-react';
+import { useCategories } from '../hooks/useCategories';
 
 export default function Dashboard() {
   const { items, transactions, setCurrentPage } = useInventory();
+  const { categories: dbCategories } = useCategories();
 
   const total = items.length;
   const inStock = items.filter(i => getStatus(i) === 'in-stock').length;
   const lowStock = items.filter(i => getStatus(i) === 'low-stock').length;
   const outOfStock = items.filter(i => getStatus(i) === 'out-of-stock').length;
 
-  const categories: Category[] = ['cleaning', 'office', 'clinic'];
+  const categories = dbCategories.length > 0 ? dbCategories.map(c => c.name) : ['cleaning', 'office', 'clinic'];
 
   const catStats = categories.map(cat => {
     const catItems = items.filter(i => i.category === cat);
@@ -25,34 +27,39 @@ export default function Dashboard() {
 
   const recentAll = transactions.slice(0, 7);
 
-  // Find latest item update
   const latestUpdate = items.reduce((latest, item) => {
     return item.lastUpdated > latest ? item.lastUpdated : latest;
   }, '');
 
   return (
-    <div className="p-4 md:p-6 space-y-4" style={{ maxHeight: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+    <div className="p-6 md:p-10 space-y-8 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 64px)' }}>
       {/* Row 1: Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Total Items', value: total, color: '#2563eb', icon: <Package size={22} color="white" /> },
-          { label: 'In Stock', value: inStock, color: '#16a34a', icon: <CheckCircle size={22} color="white" /> },
-          { label: 'Low Stock', value: lowStock, color: '#ea580c', icon: <AlertTriangle size={22} color="white" /> },
-          { label: 'Out of Stock', value: outOfStock, color: '#dc2626', icon: <XCircle size={22} color="white" /> },
+          { label: 'Total Inventory', value: total, color: 'from-blue-600 to-indigo-700', icon: <Package size={24} color="white" /> },
+          { label: 'Perfect Stock', value: inStock, color: 'from-emerald-500 to-teal-700', icon: <CheckCircle size={24} color="white" /> },
+          { label: 'Low Stock Alert', value: lowStock, color: 'from-amber-400 to-orange-600', icon: <AlertTriangle size={24} color="white" /> },
+          { label: 'Critical Outage', value: outOfStock, color: 'from-rose-500 to-red-700', icon: <XCircle size={24} color="white" /> },
         ].map((card, i) => (
           <div
             key={i}
-            className="flex-1 px-4 py-5 panel-card flex items-center gap-4 overflow-hidden"
-            style={{ borderLeft: `6px solid ${card.color}` }}
+            className={`relative overflow-hidden group panel-card p-6 flex flex-col justify-between transition-all duration-300 hover:shadow-xl hover:-translate-y-1`}
           >
-            <div className="rounded-[12px] flex items-center justify-center shrink-0" style={{ width: 48, height: 48, background: card.color }}>
-              {card.icon}
-            </div>
-            <div className="flex flex-col">
-              <div className="font-body font-bold" style={{ fontSize: 26, letterSpacing: '-0.5px', color: 'var(--heading-color)', lineHeight: 1 }}>
-                {card.value}
+            <div className={`absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 bg-gradient-to-br ${card.color} opacity-10 rounded-full transition-transform duration-500 group-hover:scale-110`}></div>
+            
+            <div className="flex items-center justify-between relative z-10">
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg shadow-blue-500/20`}>
+                {card.icon}
               </div>
-              <div className="font-body" style={{ fontSize: 12, color: 'var(--muted-text)', marginTop: 4 }}>
+              <div className="text-right">
+                <div className="font-heading font-black text-3xl tracking-tight" style={{ color: 'var(--heading-color)' }}>
+                  {card.value}
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 relative z-10">
+              <div className="font-body font-bold text-xs uppercase tracking-wider" style={{ color: 'var(--muted-text)' }}>
                 {card.label}
               </div>
             </div>
@@ -60,162 +67,120 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Row 2: 2-column grid — Breakdown + Activity, stretch to fill */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ alignItems: 'stretch' }}>
-        {/* Left: Stock Breakdown — full height, evenly distributed */}
-        <div
-          className="rounded-2xl panel-card flex flex-col"
-          style={{ border: '1px solid var(--card-border)' }}
-        >
-          {/* Header */}
-          <div className="px-6 pt-5 pb-2">
-            <h3 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>
-              Stock Breakdown by Category
+      {/* Row 2: 2-column grid — Breakdown + Activity */}
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 items-start">
+        {/* Left: Stock Breakdown — takes 3 columns */}
+        <div className="xl:col-span-3 panel-card flex flex-col p-8 space-y-6">
+          <div>
+            <h3 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>
+              Stock Distribution
             </h3>
+            <p className="font-body text-sm mt-1" style={{ color: 'var(--muted-text)' }}>Inventory levels categorized by department</p>
           </div>
 
-          {/* Bars — flex-1 to fill available space, justify-center for vertical centering */}
-          <div className="flex-1 flex flex-col justify-center px-6 py-3" style={{ gap: 4 }}>
+          <div className="space-y-6">
             {[...catStats, {
               cat: 'all' as const,
               total, inStock, lowStock, outOfStock,
             }].map((cs) => (
-              <div key={cs.cat}>
-                {cs.cat === 'all' && <div style={{ borderTop: '1px solid var(--card-border)', margin: '6px 0 10px' }} />}
-                <div className="flex items-center gap-3 mb-3">
+              <div key={cs.cat} className="space-y-2">
+                <div className="flex items-center justify-between px-1">
                   <button
                     onClick={() => cs.cat !== 'all' && setCurrentPage(cs.cat as any)}
-                    className="font-body font-semibold text-right transition-colors"
+                    className="font-body font-bold text-sm transition-colors hover:text-blue-500 text-left"
                     style={{
-                      width: 70,
-                      fontSize: 13,
                       color: cs.cat === 'all' ? 'var(--heading-color)' : 'var(--fg-color)',
-                      background: 'none',
-                      border: 'none',
                       cursor: cs.cat === 'all' ? 'default' : 'pointer',
-                      padding: 0,
                     }}
-                    onMouseEnter={e => { if (cs.cat !== 'all') e.currentTarget.style.color = '#7c3aed'; }}
-                    onMouseLeave={e => { if (cs.cat !== 'all') e.currentTarget.style.color = 'var(--fg-color)'; }}
                   >
-                    {cs.cat === 'all' ? 'Overall' : cs.cat === 'cleaning' ? 'Cleaning' : cs.cat === 'office' ? 'Office' : 'Clinic'}
+                    {cs.cat === 'all' ? 'Overall Status' : cs.cat.charAt(0).toUpperCase() + cs.cat.slice(1)}
                   </button>
-                  <div className="flex-1 rounded-full overflow-hidden" style={{ height: 32, background: 'var(--donut-track)' }}>
-                    <div className="flex h-full" style={{ width: '100%' }}>
-                      {cs.total > 0 && (
-                        <>
-                          {cs.inStock > 0 && (
-                            <div className="h-full flex items-center justify-center text-white font-body font-semibold" style={{
-                              width: `${(cs.inStock / cs.total) * 100}%`,
-                              background: '#15803d',
-                              fontSize: 12,
-                              transition: 'all 0.7s',
-                            }}>
-                              {(cs.inStock / cs.total) > 0.10 ? cs.inStock : ''}
-                            </div>
-                          )}
-                          {cs.lowStock > 0 && (
-                            <div className="h-full flex items-center justify-center text-white font-body font-semibold" style={{
-                              width: `${(cs.lowStock / cs.total) * 100}%`,
-                              background: '#d97706',
-                              fontSize: 12,
-                              transition: 'all 0.7s',
-                            }}>
-                              {(cs.lowStock / cs.total) > 0.10 ? cs.lowStock : ''}
-                            </div>
-                          )}
-                          {cs.outOfStock > 0 && (
-                            <div className="h-full flex items-center justify-center text-white font-body font-semibold" style={{
-                              width: `${(cs.outOfStock / cs.total) * 100}%`,
-                              background: '#b91c1c',
-                              fontSize: 12,
-                              transition: 'all 0.7s',
-                            }}>
-                              {(cs.outOfStock / cs.total) > 0.10 ? cs.outOfStock : ''}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <span className="font-body font-bold text-right" style={{ width: 28, fontSize: 13, color: 'var(--fg-color)' }}>
-                    {cs.total}
+                  <span className="font-body font-black text-sm" style={{ color: 'var(--heading-color)' }}>
+                    {cs.total} <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Items</span>
                   </span>
+                </div>
+                
+                <div className="relative h-4 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex shadow-inner">
+                  {cs.total > 0 ? (
+                    <>
+                      <div className="h-full transition-all duration-1000" style={{ width: `${(cs.inStock / cs.total) * 100}%`, background: 'var(--status-in-stock-dot)' }} title={`In Stock: ${cs.inStock}`} />
+                      <div className="h-full transition-all duration-1000" style={{ width: `${(cs.lowStock / cs.total) * 100}%`, background: 'var(--status-low-stock-dot)' }} title={`Low Stock: ${cs.lowStock}`} />
+                      <div className="h-full transition-all duration-1000" style={{ width: `${(cs.outOfStock / cs.total) * 100}%`, background: 'var(--status-out-of-stock-dot)' }} title={`Out of Stock: ${cs.outOfStock}`} />
+                    </>
+                  ) : (
+                    <div className="w-full h-full bg-slate-200 dark:bg-slate-700/50" />
+                  )}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Footer: legend + tip */}
-          <div className="px-6 pb-4 pt-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--card-border)' }}>
-            <div className="flex items-center gap-4">
-              {[
-                { label: 'In Stock', color: '#15803d' },
-                { label: 'Low Stock', color: '#d97706' },
-                { label: 'Out of Stock', color: '#b91c1c' },
-              ].map(l => (
-                <div key={l.label} className="flex items-center gap-1.5">
-                  <span className="rounded" style={{ width: 10, height: 10, background: l.color }} />
-                  <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>{l.label}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-1 font-body" style={{ fontSize: 10, color: 'var(--muted-text)' }}>
-              <MousePointerClick size={12} />
-              <span>Click a category to manage</span>
-            </div>
+          <div className="pt-4 flex flex-wrap items-center gap-6 border-t border-slate-100 dark:border-slate-800">
+            {[
+              { label: 'In Stock', color: 'var(--status-in-stock-dot)' },
+              { label: 'Low Stock', color: 'var(--status-low-stock-dot)' },
+              { label: 'Out of Stock', color: 'var(--status-out-of-stock-dot)' },
+            ].map(l => (
+              <div key={l.label} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full shadow-sm" style={{ background: l.color }} />
+                <span className="font-body font-bold text-[10px] uppercase tracking-wider" style={{ color: 'var(--muted-text)' }}>{l.label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Right: Recent Activity — matches height */}
-        <div
-          className="rounded-2xl panel-card flex flex-col"
-          style={{ border: '1px solid var(--card-border)' }}
-        >
-          <div className="px-6 pt-5 pb-2">
-            <h3 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>Recent Activity</h3>
-            <p className="font-body mt-0.5" style={{ fontSize: 11, color: 'var(--muted-text)' }}>Latest transactions across all categories</p>
+        {/* Right: Recent Activity — takes 2 columns */}
+        <div className="xl:col-span-2 panel-card flex flex-col p-8 space-y-6">
+          <div>
+            <h3 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>Global Activity</h3>
+            <p className="font-body text-sm mt-1" style={{ color: 'var(--muted-text)' }}>Latest inventory movements</p>
           </div>
-          <div className="flex-1 flex flex-col justify-center px-4 py-1">
+
+          <div className="flex-1 space-y-1">
             {recentAll.length === 0 ? (
-              <p className="font-body text-center py-6" style={{ color: 'var(--muted-text)', fontSize: 13 }}>
-                No transactions recorded yet
-              </p>
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                <MousePointerClick size={40} className="mb-4 opacity-20" />
+                <p className="font-body text-sm">No recent movements</p>
+              </div>
             ) : (
-              <div className="space-y-0">
-                {recentAll.map(tx => {
-                  const typeColors: Record<string, string> = { restock: '#15803d', borrow: '#7c3aed', use: '#d97706' };
-                  return (
-                    <div key={tx.id} className="flex items-center gap-2.5 px-2 py-2 rounded-lg table-row-hover">
-                      <span className="font-body font-bold px-3 py-1 rounded-full text-white shadow-sm" style={{ fontSize: 10, background: typeColors[tx.type], whiteSpace: 'nowrap', minWidth: 60, textAlign: 'center' }}>
-                        {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-body font-semibold truncate" style={{ fontSize: 13, color: 'var(--fg-color)' }}>{tx.itemName}</div>
-                        <div className="font-body" style={{ fontSize: 10, color: 'var(--muted-text)' }}>{tx.by}</div>
+              recentAll.map(tx => {
+                const isPositive = tx.type === 'restock' || tx.type === 'return';
+                return (
+                  <div key={tx.id} className="group flex items-center gap-4 p-3 rounded-2xl transition-all hover:bg-slate-50 dark:hover:bg-white/5">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
+                      tx.type === 'restock' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' :
+                      tx.type === 'borrow' ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400' :
+                      tx.type === 'return' ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400' :
+                      'bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                    }`}>
+                      {tx.type === 'restock' ? <PackagePlus size={18} /> : 
+                       tx.type === 'borrow' ? <Handshake size={18} /> : 
+                       tx.type === 'return' ? <CornerDownLeft size={18} /> :
+                       <PackageMinus size={18} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-body font-bold text-sm truncate" style={{ color: 'var(--heading-color)' }}>{tx.itemName}</div>
+                      <div className="font-body text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-text)' }}>{tx.by}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-heading font-black text-sm ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        {isPositive ? '+' : '−'}{Math.abs(tx.qtyChange)}
                       </div>
-                      <div className="text-right">
-                        <div className="font-body font-bold" style={{ fontSize: 13, color: tx.type === 'restock' ? '#15803d' : '#b91c1c' }}>
-                          {tx.type === 'restock' ? '+' : '−'}{Math.abs(tx.qtyChange)}
-                        </div>
-                        <div className="font-body" style={{ fontSize: 9, color: 'var(--muted-text)' }}>
-                          {new Date(tx.date).toLocaleDateString()}
-                        </div>
+                      <div className="font-body text-[10px] text-slate-400">
+                        {new Date(tx.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })
             )}
           </div>
-          {/* Footer: last updated */}
-          <div className="px-6 pb-4 pt-2" style={{ borderTop: '1px solid var(--card-border)' }}>
-            <p className="font-body" style={{ fontSize: 10, color: 'var(--muted-text)' }}>
-              {latestUpdate
-                ? `Last updated: ${new Date(latestUpdate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-                : 'No updates yet'
-              }
-            </p>
+
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Live Updates Enabled
+            </div>
           </div>
         </div>
       </div>

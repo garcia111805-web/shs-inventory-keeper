@@ -6,6 +6,7 @@ import StatusBadge from '../components/StatusBadge';
 import AddEditItemModal from '../components/AddEditItemModal';
 import StockMovementModal from '../components/StockMovementModal';
 import BulkRestockModal from '../components/BulkRestockModal';
+import { useCategories } from '../hooks/useCategories';
 import { 
   PackageSearch, 
   Plus, 
@@ -84,6 +85,7 @@ interface Props {
 export default function InventoryPage({ category, onAddItem, onImportCSV, onStockMovement, forcedType }: Props) {
   const { items, transactions, deleteItem, showToast, searchQuery, setSearchQuery, setCurrentPage: setGlobalPage } = useInventory();
   const { role, user } = useAuth();
+  const { categories: dbCategories } = useCategories();
   const isAdmin = role === 'admin';
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -163,11 +165,13 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
     return '#b91c1c';
   };
 
-  const categories: { id: Category; label: string }[] = [
-    { id: 'cleaning', label: 'Cleaning Materials' },
-    { id: 'office', label: 'Office Supplies' },
-    { id: 'clinic', label: 'Clinic Supplies' },
-  ];
+  const categories = dbCategories.length > 0 
+    ? dbCategories.map(c => ({ id: c.name as Category, label: c.name.charAt(0).toUpperCase() + c.name.slice(1) }))
+    : [
+        { id: 'cleaning' as Category, label: 'Cleaning Materials' },
+        { id: 'office' as Category, label: 'Office Supplies' },
+        { id: 'clinic' as Category, label: 'Clinic Supplies' },
+      ];
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -203,13 +207,13 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 sm:max-w-xs">
-          <PackageSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#0d1b6e' }} />
+        <div className="relative flex-1 sm:max-w-xs group">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
           <input
             type="text"
-            placeholder="Search items..."
-            className="w-full rounded-xl pl-9 pr-3 py-2.5 font-body"
-            style={{ fontSize: 14, background: '#ffffff', border: '1px solid #0d1b6e', color: '#0d1b6e', outline: 'none' }}
+            placeholder="Search within this category..."
+            className="w-full rounded-2xl pl-10 pr-4 py-3 font-body bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+            style={{ fontSize: 14 }}
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); }}
           />
@@ -347,7 +351,7 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
                     )}
                   </td>
                   <td className="px-4 py-4"><StatusBadge status={status} /></td>
-                  <td className="px-4 py-4 font-body" style={{ fontSize: 14, color: 'var(--fg-color)', opacity: 0.9 }}>
+                  <td className="px-4 py-4 font-body text-xs font-semibold" style={{ color: 'var(--muted-text)' }}>
                     {new Date(item.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
                   <td className="px-4 py-4">

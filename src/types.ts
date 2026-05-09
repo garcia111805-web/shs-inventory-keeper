@@ -1,10 +1,10 @@
-export type Category = 'cleaning' | 'office' | 'clinic';
+export type Category = string;
 export type ItemStatus = 'in-stock' | 'low-stock' | 'out-of-stock';
-export type TransactionType = 'restock' | 'borrow' | 'use';
+export type TransactionType = 'restock' | 'borrow' | 'use' | 'return';
 export type UserRole = 'admin' | 'staff' | 'borrower';
 
 
-export type PageName = 'dashboard' | 'cleaning' | 'office' | 'clinic' | 'transactions' | 'reports' | 'settings' | 'portal';
+export type PageName = string;
 export interface AppUser {
   id: string;
   fullName: string;
@@ -14,7 +14,7 @@ export interface AppUser {
   createdAt: string;
 }
 
-export const UNITS = ['pcs', 'boxes', 'bottles', 'reams', 'sets'] as const;
+export const DEFAULT_UNITS = ['pcs', 'boxes', 'bottles', 'reams', 'sets'] as const;
 
 
 export interface InventoryItem {
@@ -50,16 +50,27 @@ export function getStatus(item: InventoryItem): ItemStatus {
   return 'in-stock';
 }
 
-export function getCategoryLabel(cat: Category): string {
-  if (cat === 'cleaning') return 'Cleaning Materials';
-  if (cat === 'office') return 'Office Supplies';
-  return 'Clinic Supplies';
+export function getCategoryLabel(cat: string): string {
+  if (!cat) return 'Uncategorized';
+  if (cat.toLowerCase() === 'cleaning') return 'Cleaning Materials';
+  if (cat.toLowerCase() === 'office') return 'Office Supplies';
+  if (cat.toLowerCase() === 'clinic') return 'Clinic Supplies';
+  return cat.charAt(0).toUpperCase() + cat.slice(1);
 }
 
-export function getCategoryColor(cat: Category): string {
-  if (cat === 'cleaning') return '#0d1b6e';
-  if (cat === 'office') return '#d97706';
-  return '#b91c1c';
+export function getCategoryColor(cat: string): string {
+  const c = cat.toLowerCase();
+  if (c === 'cleaning') return '#0d1b6e';
+  if (c === 'office') return '#d97706';
+  if (c === 'clinic') return '#b91c1c';
+  
+  // Hash function for random but consistent colors for new categories
+  let hash = 0;
+  for (let i = 0; i < c.length; i++) {
+    hash = c.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash % 360);
+  return `hsl(${h}, 70%, 45%)`;
 }
 
 

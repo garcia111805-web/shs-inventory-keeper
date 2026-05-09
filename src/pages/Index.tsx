@@ -14,13 +14,15 @@ import AddEditItemModal from '../components/AddEditItemModal';
 import StockMovementModal from '../components/StockMovementModal';
 import CSVImportModal from '../components/CSVImportModal';
 import { Category, TransactionType, InventoryItem } from '../types';
-import { Loader2, LogOut, Handshake, Sun, Moon } from 'lucide-react';
+import { Loader2, LogOut, Handshake, Sun, Moon, LayoutGrid } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { useCategories } from '../hooks/useCategories';
 
 export default function Index() {
   const { currentPage, setCurrentPage, loading } = useInventory();
   const { role, user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { categories } = useCategories();
   const isAdmin = role === 'admin';
   
   const [showAddItem, setShowAddItem] = useState(false);
@@ -55,9 +57,6 @@ export default function Index() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard': return <Dashboard />;
-      case 'cleaning': return <InventoryPage category="cleaning" onAddItem={() => setShowAddItem(true)} onImportCSV={() => setShowCSVImport(true)} onStockMovement={handleQuickAction} forcedType={staffMode} />;
-      case 'office': return <InventoryPage category="office" onAddItem={() => setShowAddItem(true)} onImportCSV={() => setShowCSVImport(true)} onStockMovement={handleQuickAction} forcedType={staffMode} />;
-      case 'clinic': return <InventoryPage category="clinic" onAddItem={() => setShowAddItem(true)} onImportCSV={() => setShowCSVImport(true)} onStockMovement={handleQuickAction} forcedType={staffMode} />;
       case 'transactions': return <TransactionLog />;
       case 'reports': return <Reports />;
       case 'settings': return <SettingsPage />;
@@ -65,13 +64,13 @@ export default function Index() {
         <div className="p-4 md:p-8">
           <div className="max-w-6xl mx-auto space-y-6">
             <header 
-          className="flex items-center justify-between p-4 transition-colors duration-300 rounded-2xl border"
-          style={{ 
-            background: 'var(--topbar-bg)', 
-            borderColor: 'var(--topbar-border)',
-            backdropFilter: 'blur(12px)'
-          }}
-        >
+              className="flex items-center justify-between p-4 transition-colors duration-300 rounded-2xl border"
+              style={{ 
+                background: 'var(--topbar-bg)', 
+                borderColor: 'var(--topbar-border)',
+                backdropFilter: 'blur(12px)'
+              }}
+            >
               <div className="flex items-center gap-3">
                 <Handshake size={24} className="text-[#e8b400]" />
                 <h2 className="font-heading font-bold" style={{ color: 'var(--heading-color)' }}>Operations Preview</h2>
@@ -85,7 +84,28 @@ export default function Index() {
           </div>
         </div>
       );
-      default: return isAdmin ? <Dashboard /> : <SelfServicePortal />;
+      default: {
+        // Check if the current page is a dynamic category
+        const isCategory = categories.some(cat => cat.name === currentPage) || 
+                          ['cleaning', 'office', 'clinic'].includes(currentPage);
+        
+        if (isCategory) {
+          return (
+            <InventoryPage 
+              category={currentPage} 
+              onAddItem={() => setShowAddItem(true)} 
+              onImportCSV={() => setShowCSVImport(true)} 
+              onStockMovement={handleQuickAction} 
+              forcedType={staffMode} 
+            />
+          );
+        }
+        
+        return isAdmin ? <Dashboard /> : <SelfServicePortal onAction={(type) => {
+          setStaffMode(type);
+          setCurrentPage('cleaning');
+        }} />;
+      }
     }
   };
 

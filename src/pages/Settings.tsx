@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useLocations } from '../hooks/useLocations';
 import { useUsers } from '../hooks/useUsers';
+import { useCategories } from '../hooks/useCategories';
+import { useUnits } from '../hooks/useUnits';
 import { useInventory } from '../context/InventoryContext';
-import { MapPin, Plus, Pencil, Trash2, Check, X, Settings, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck, ChevronDown } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Check, X, Settings, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck, ChevronDown, LayoutGrid, Ruler, CornerDownLeft } from 'lucide-react';
 import { UserRole } from '../types';
-
 
 // ─── Reusable Row Editor ─────────────────────────────────────────────────────
 interface EntryRowProps {
@@ -37,7 +38,7 @@ function EntryRow({ id, name, onEdit, onDelete }: EntryRowProps) {
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all"
+      className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-white/5"
       style={{ background: 'var(--input-bg)', border: '1px solid var(--card-border)' }}
     >
       {editing ? (
@@ -53,14 +54,14 @@ function EntryRow({ id, name, onEdit, onDelete }: EntryRowProps) {
           <button
             onClick={handleSave}
             disabled={busy}
-            className="flex items-center justify-center rounded-lg transition-opacity hover:opacity-80"
+            className="flex items-center justify-center rounded-lg transition-all hover:scale-105"
             style={{ width: 28, height: 28, background: '#15803d' }}
           >
             {busy ? <Loader2 size={13} color="white" className="animate-spin" /> : <Check size={13} color="white" />}
           </button>
           <button
             onClick={() => { setEditing(false); setValue(name); }}
-            className="flex items-center justify-center rounded-lg transition-opacity hover:opacity-80"
+            className="flex items-center justify-center rounded-lg transition-all hover:scale-105"
             style={{ width: 28, height: 28, background: 'var(--card-border)' }}
           >
             <X size={13} style={{ color: 'var(--fg-color)' }} />
@@ -68,19 +69,19 @@ function EntryRow({ id, name, onEdit, onDelete }: EntryRowProps) {
         </>
       ) : (
         <>
-          <span className="flex-1 font-body font-medium" style={{ fontSize: 14, color: 'var(--fg-color)' }}>{name}</span>
+          <span className="flex-1 font-body font-bold text-sm" style={{ color: 'var(--fg-color)' }}>{name}</span>
           <button
             onClick={() => setEditing(true)}
             disabled={busy}
-            className="flex items-center justify-center rounded-lg transition-opacity hover:opacity-80"
-            style={{ width: 28, height: 28, background: '#0d1b6e' }}
+            className="flex items-center justify-center rounded-lg transition-all hover:scale-105 shadow-sm"
+            style={{ width: 28, height: 28, background: 'var(--accent-color)' }}
           >
             <Pencil size={13} color="white" />
           </button>
           <button
             onClick={handleDelete}
             disabled={busy}
-            className="flex items-center justify-center rounded-lg transition-opacity hover:opacity-80"
+            className="flex items-center justify-center rounded-lg transition-all hover:scale-105 shadow-sm"
             style={{ width: 28, height: 28, background: '#b71c1c' }}
           >
             {busy ? <Loader2 size={13} color="white" className="animate-spin" /> : <Trash2 size={13} color="white" />}
@@ -105,7 +106,7 @@ function ModernSelect({ value, onChange, options, label }: { value: string, onCh
           background: 'var(--input-bg)', 
           border: '1px solid var(--card-border)', 
           color: 'var(--fg-color)',
-          boxShadow: isOpen ? '0 0 0 2px rgba(124, 58, 237, 0.2)' : 'none'
+          boxShadow: isOpen ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none'
         }}
       >
         <span className="truncate">{currentLabel}</span>
@@ -115,7 +116,7 @@ function ModernSelect({ value, onChange, options, label }: { value: string, onCh
       {isOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full left-0 right-0 mt-2 rounded-xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200"
+          <div className="absolute top-full left-0 right-0 mt-2 rounded-xl shadow-2xl overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2 duration-200"
             style={{ background: 'var(--dropdown-bg)', border: '1px solid var(--card-border)', minWidth: 180 }}>
             <div className="max-h-60 overflow-y-auto py-1">
               {options.map(opt => (
@@ -125,8 +126,8 @@ function ModernSelect({ value, onChange, options, label }: { value: string, onCh
                   className="w-full text-left px-4 py-3 font-body transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
                   style={{ 
                     fontSize: 14, 
-                    color: value === opt.value ? '#7c3aed' : 'var(--fg-color)',
-                    background: value === opt.value ? 'rgba(124, 58, 237, 0.08)' : 'transparent',
+                    color: value === opt.value ? 'var(--accent-color)' : 'var(--fg-color)',
+                    background: value === opt.value ? 'var(--accent-glow)' : 'transparent',
                     fontWeight: value === opt.value ? 700 : 500
                   }}
                 >
@@ -145,9 +146,16 @@ function ModernSelect({ value, onChange, options, label }: { value: string, onCh
 export default function SettingsPage() {
   const { showToast } = useInventory();
   const { locations, loading: locLoading, addLocation, updateLocation, deleteLocation } = useLocations();
-
   const [newLocation, setNewLocation] = useState('');
   const [addingLoc, setAddingLoc] = useState(false);
+
+  const { categories, loading: catLoading, addCategory, updateCategory, deleteCategory } = useCategories();
+  const [newCategory, setNewCategory] = useState('');
+  const [addingCat, setAddingCat] = useState(false);
+
+  const { units, loading: unitLoading, addUnit, updateUnit, deleteUnit } = useUnits();
+  const [newUnit, setNewUnit] = useState('');
+  const [addingUnit, setAddingUnit] = useState(false);
 
   const handleAddLocation = async () => {
     if (!newLocation.trim()) return;
@@ -181,40 +189,179 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAddCategory = async () => {
+    if (!newCategory.trim()) return;
+    setAddingCat(true);
+    try {
+      await addCategory(newCategory.trim());
+      setNewCategory('');
+      showToast(`Category "${newCategory.trim()}" added`, 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to add category', 'error');
+    } finally {
+      setAddingCat(false);
+    }
+  };
+
+  const handleAddUnit = async () => {
+    if (!newUnit.trim()) return;
+    setAddingUnit(true);
+    try {
+      await addUnit(newUnit.trim());
+      setNewUnit('');
+      showToast(`Unit "${newUnit.trim()}" added`, 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to add unit', 'error');
+    } finally {
+      setAddingUnit(false);
+    }
+  };
+
   return (
-    <div className="p-4 md:p-8 space-y-10 max-w-4xl mx-auto">
+    <div className="p-8 md:p-12 space-y-12 max-w-6xl mx-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 64px)' }}>
       {/* Page Header */}
-      <div className="flex items-center gap-4">
-        <div
-          className="rounded-2xl flex items-center justify-center shadow-lg"
-          style={{ width: 56, height: 56, background: 'linear-gradient(135deg, #0d1b6e, #1a0a3e)' }}
-        >
-          <Settings size={28} color="#e8b400" />
-        </div>
-        <div>
-          <h1 className="font-heading font-bold" style={{ fontSize: 28, color: 'var(--heading-color)' }}>Settings</h1>
-          <p className="font-body" style={{ fontSize: 14, color: 'var(--muted-text)' }}>System configuration and user management</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-6">
+          <div
+            className="rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-500/20"
+            style={{ width: 72, height: 72, background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}
+          >
+            <Settings size={36} color="white" />
+          </div>
+          <div>
+            <h1 className="font-heading font-black text-4xl tracking-tight" style={{ color: 'var(--heading-color)' }}>System Config</h1>
+            <p className="font-body text-base mt-1" style={{ color: 'var(--muted-text)' }}>Manage your workspace preferences and security</p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Locations Section */}
-        <section className="rounded-2xl panel-card p-6 space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <MapPin size={20} style={{ color: '#0d1b6e' }} />
-            <h2 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>Locations</h2>
-            <span
-              className="ml-auto font-body font-bold rounded-full px-2.5 py-0.5 text-xs"
-              style={{ background: 'rgba(13,27,110,0.12)', color: '#0d1b6e' }}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        {/* Categories Section */}
+        <section className="panel-card p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <LayoutGrid size={20} />
+              </div>
+              <h2 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>Categories</h2>
+            </div>
+            <span className="font-body font-black text-sm bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full">
+              {categories.length}
+            </span>
+          </div>
+
+          <div className="flex gap-3">
+            <input
+              className="modal-input flex-1"
+              placeholder="Enter category name…"
+              value={newCategory}
+              onChange={e => setNewCategory(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+            />
+            <button
+              onClick={handleAddCategory}
+              disabled={!newCategory.trim() || addingCat}
+              className="modal-btn-confirm flex items-center gap-2"
+              style={{ padding: '0.75rem 1.5rem' }}
             >
+              {addingCat ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+              <span>Add</span>
+            </button>
+          </div>
+
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            {catLoading ? (
+              <div className="flex justify-center py-10">
+                <Loader2 size={32} className="animate-spin text-blue-500" />
+              </div>
+            ) : categories.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                <p className="font-body text-sm text-slate-400">No categories defined yet</p>
+              </div>
+            ) : categories.map(cat => (
+              <EntryRow
+                key={cat.id}
+                id={cat.id}
+                name={cat.name}
+                onEdit={updateCategory}
+                onDelete={deleteCategory}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Units Section */}
+        <section className="panel-card p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                <Ruler size={20} />
+              </div>
+              <h2 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>Measurement Units</h2>
+            </div>
+            <span className="font-body font-black text-sm bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 px-3 py-1 rounded-full">
+              {units.length}
+            </span>
+          </div>
+
+          <div className="flex gap-3">
+            <input
+              className="modal-input flex-1"
+              placeholder="e.g. pieces, kg, boxes…"
+              value={newUnit}
+              onChange={e => setNewUnit(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddUnit()}
+            />
+            <button
+              onClick={handleAddUnit}
+              disabled={!newUnit.trim() || addingUnit}
+              className="modal-btn-confirm flex items-center gap-2"
+              style={{ padding: '0.75rem 1.5rem', background: '#7c3aed', boxShadow: '0 4px 12px rgba(124,58,237,0.2)' }}
+            >
+              {addingUnit ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+              <span>Add</span>
+            </button>
+          </div>
+
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            {unitLoading ? (
+              <div className="flex justify-center py-10">
+                <Loader2 size={32} className="animate-spin text-purple-500" />
+              </div>
+            ) : units.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                <p className="font-body text-sm text-slate-400">No measurement units defined</p>
+              </div>
+            ) : units.map(u => (
+              <EntryRow
+                key={u.id}
+                id={u.id}
+                name={u.name}
+                onEdit={updateUnit}
+                onDelete={deleteUnit}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Locations Section */}
+        <section className="panel-card p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                <MapPin size={20} />
+              </div>
+              <h2 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>Storage Locations</h2>
+            </div>
+            <span className="font-body font-black text-sm bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full">
               {locations.length}
             </span>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <input
               className="modal-input flex-1"
-              placeholder="New location name…"
+              placeholder="e.g. Cabinet A, Room 101…"
               value={newLocation}
               onChange={e => setNewLocation(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddLocation()}
@@ -222,23 +369,23 @@ export default function SettingsPage() {
             <button
               onClick={handleAddLocation}
               disabled={!newLocation.trim() || addingLoc}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-body font-semibold text-white transition-all active:scale-95"
-              style={{ fontSize: 13, background: '#0d1b6e', opacity: !newLocation.trim() || addingLoc ? 0.6 : 1 }}
+              className="modal-btn-confirm flex items-center gap-2"
+              style={{ padding: '0.75rem 1.5rem', background: '#10b981', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
             >
-              {addingLoc ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              Add
+              {addingLoc ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+              <span>Add</span>
             </button>
           </div>
 
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
             {locLoading ? (
-              <div className="flex justify-center py-6">
-                <Loader2 size={24} className="animate-spin" style={{ color: 'var(--muted-text)' }} />
+              <div className="flex justify-center py-10">
+                <Loader2 size={32} className="animate-spin text-emerald-500" />
               </div>
             ) : locations.length === 0 ? (
-              <p className="text-center py-6 font-body" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
-                No locations yet. Add one above.
-              </p>
+              <div className="text-center py-12 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                <p className="font-body text-sm text-slate-400">No locations added yet</p>
+              </div>
             ) : locations.map(loc => (
               <EntryRow
                 key={loc.id}
@@ -276,11 +423,7 @@ function UserManagementSection() {
 
     setIsAdding(true);
     try {
-      // Use timestamp if employeeId is empty to keep it unique in DB if needed
       const finalId = employeeId || `USER-${Date.now()}`;
-      
-      // For staff, we don't need a PIN from the user, but DB might require it.
-      // We'll use '0000' as a background placeholder for staff.
       const finalPin = role === 'admin' ? pin : '0000';
       
       if (role === 'admin' && (!pin || pin.length !== 4)) {
@@ -313,74 +456,68 @@ function UserManagementSection() {
   };
 
   return (
-    <section className="rounded-2xl panel-card p-6 space-y-6">
-      <div className="flex items-center gap-2">
-        <Users size={20} style={{ color: '#7c3aed' }} />
-        <h2 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>User Accounts</h2>
-        <span
-          className="ml-auto font-body font-bold rounded-full flex items-center justify-center shadow-sm"
-          style={{ 
-            background: 'rgba(124,58,237,0.12)', 
-            color: '#7c3aed', 
-            fontSize: 10,
-            minWidth: 24,
-            height: 24,
-            padding: '0 8px'
-          }}
-        >
+    <section className="panel-card p-8 space-y-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-500/10 flex items-center justify-center text-rose-600 dark:text-rose-400">
+            <Users size={20} />
+          </div>
+          <h2 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>Access Control</h2>
+        </div>
+        <span className="font-body font-black text-sm bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 px-3 py-1 rounded-full">
           {users.length}
         </span>
       </div>
 
       {/* Add User Form */}
-      <div className="space-y-3 p-4 rounded-xl" style={{ background: 'rgba(0,0,0,0.03)', border: '1px dashed var(--card-border)' }}>
+      <div className="space-y-6 p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2 mb-2">
-          <UserPlus size={16} style={{ color: '#7c3aed' }} />
-          <span className="font-heading font-bold text-sm" style={{ color: 'var(--heading-color)' }}>Register New Account</span>
+          <UserPlus size={18} className="text-rose-500" />
+          <span className="font-heading font-black text-sm uppercase tracking-wider" style={{ color: 'var(--heading-color)' }}>New Account</span>
         </div>
         
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider opacity-50 ml-1">Full Name</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Display Name</label>
             <input
               className="modal-input w-full"
-              placeholder="e.g. Juan Dela Cruz"
+              placeholder="e.g. John Doe"
               value={fullName}
               onChange={e => setFullName(e.target.value)}
             />
           </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider opacity-50 ml-1">Note / ID (Optional)</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Reference ID</label>
             <input
               className="modal-input w-full"
-              placeholder="Any reference"
+              placeholder="Employee ID / Note"
               value={employeeId}
               onChange={e => setEmployeeId(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider opacity-50 ml-1">Account Role</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Access Role</label>
             <ModernSelect 
               label="Select Role"
               value={role} 
               onChange={(v) => setRole(v as UserRole)}
               options={[
-                { value: 'borrower', label: 'Staff' },
-                { value: 'admin', label: 'Admin' },
+                { value: 'borrower', label: 'Staff Member' },
+                { value: 'admin', label: 'System Admin' },
               ]}
             />
           </div>
           {role === 'admin' && (
-            <div className="space-y-1 animate-in fade-in slide-in-from-right-2 duration-300">
-              <label className="text-[10px] font-bold uppercase tracking-wider opacity-50 ml-1">4-Digit PIN</label>
+            <div className="space-y-1.5 animate-in slide-in-from-right-4 duration-300">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Security PIN (4-Digits)</label>
               <input
-                className="modal-input w-full"
+                className="modal-input w-full font-black tracking-[0.5em]"
                 type="password"
                 maxLength={4}
-                placeholder="● ● ● ●"
+                placeholder="0000"
                 value={pin}
                 onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
               />
@@ -391,61 +528,54 @@ function UserManagementSection() {
         <button
           onClick={handleAddUser}
           disabled={isAdding}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-body font-bold text-white transition-all active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-body font-black text-white transition-all active:scale-[0.98] shadow-lg shadow-rose-500/20"
           style={{ 
-            background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-            boxShadow: '0 4px 12px rgba(124,58,237,0.2)'
+            background: 'linear-gradient(135deg, #f43f5e, #e11d48)'
           }}
         >
-          {isAdding ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
-          Create Account
+          {isAdding ? <Loader2 size={18} className="animate-spin" /> : <UserPlus size={18} />}
+          <span>Create Account</span>
         </button>
       </div>
 
       {/* Users List */}
-      <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
         {loading ? (
-          <div className="flex justify-center py-6">
-            <Loader2 size={24} className="animate-spin" style={{ color: 'var(--muted-text)' }} />
+          <div className="flex justify-center py-10">
+            <Loader2 size={32} className="animate-spin text-rose-500" />
           </div>
         ) : users.length === 0 ? (
-          <p className="text-center py-6 font-body" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
-            No accounts registered yet.
-          </p>
+          <p className="text-center py-12 text-slate-400 font-body text-sm">No accounts found</p>
         ) : users.map(user => (
           <div
             key={user.id}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl border"
-            style={{ background: 'var(--input-bg)', borderColor: 'var(--card-border)' }}
+            className="group flex items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-white/5 hover:border-rose-300 dark:hover:border-rose-900/50 transition-all duration-300 shadow-sm hover:shadow-md"
           >
             <div 
-              className="rounded-lg flex items-center justify-center" 
-              style={{ 
-                width: 36, 
-                height: 36, 
-                background: user.role === 'admin' ? 'rgba(232,180,0,0.1)' : 'rgba(124,58,237,0.1)',
-                color: user.role === 'admin' ? '#e8b400' : '#7c3aed'
-              }}
+              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${
+                user.role === 'admin' ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+              }`}
             >
-              {user.role === 'admin' ? <ShieldCheck size={18} /> : <Users size={18} />}
+              {user.role === 'admin' ? <ShieldCheck size={22} /> : <Users size={22} />}
             </div>
-            <div className="flex-1">
-              <div className="font-body font-bold" style={{ fontSize: 14, color: 'var(--fg-color)' }}>{user.fullName}</div>
-              <div className="flex items-center gap-2 font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                <Fingerprint size={10} /> {user.employeeId}
-                <span className="opacity-30">•</span>
-                <Key size={10} /> PIN: {user.pin.replace(/./g, '*')}
-                <span className="ml-1 opacity-60 uppercase font-bold" style={{ color: user.role === 'admin' ? '#e8b400' : '#7c3aed' }}>
+            <div className="flex-1 min-w-0">
+              <div className="font-body font-black text-sm truncate" style={{ color: 'var(--heading-color)' }}>{user.fullName}</div>
+              <div className="flex items-center gap-3 mt-0.5">
+                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                  user.role === 'admin' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                }`}>
                   {user.role}
+                </span>
+                <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1">
+                  <Fingerprint size={10} /> {user.employeeId.length > 10 ? user.employeeId.slice(0, 10) + '...' : user.employeeId}
                 </span>
               </div>
             </div>
             <button
               onClick={() => handleDeleteUser(user.id, user.fullName)}
-              className="flex items-center justify-center rounded-lg transition-opacity hover:opacity-80"
-              style={{ width: 32, height: 32, background: '#fee2e2' }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 dark:bg-red-500/10 dark:hover:bg-red-600 shadow-sm"
             >
-              <Trash2 size={14} color="#dc2626" />
+              <Trash2 size={16} />
             </button>
           </div>
         ))}

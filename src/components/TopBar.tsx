@@ -68,47 +68,81 @@ export default function TopBar({ onToggleSidebar, onQuickAction, onItemSelect }:
 
   return (
     <div
-      className="topbar"
+      className="topbar sticky top-0 z-50 flex items-center gap-4 px-8 py-4"
       style={{
         background: 'var(--topbar-bg)',
         borderBottom: '1px solid var(--topbar-border)',
-        backdropFilter: 'blur(12px)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
       }}
     >
-      <div className="topbar-left">
+      <div className="topbar-left flex items-center gap-4 min-w-[200px]">
         <button className="hamburger-btn" onClick={onToggleSidebar} aria-label="Open menu">
           <Menu size={18} />
         </button>
-        <h1 className="font-heading font-bold" style={{ fontSize: 20, color: 'var(--heading-color)' }}>
-          {pageTitles[currentPage] || 'Dashboard'}
+        <h1 className="font-heading font-bold" style={{ fontSize: 22, color: 'var(--heading-color)', letterSpacing: '-0.02em' }}>
+          {pageTitles[currentPage] || currentPage.charAt(0).toUpperCase() + currentPage.slice(1)}
         </h1>
       </div>
-      <div className="flex-1" />
-      <div className="topbar-actions flex-1 justify-end" style={{ alignItems: 'center' }}>
-        <div className="ml-auto pl-6 border-l border-slate-200 dark:border-slate-700 h-8 flex items-center gap-3">
-          <button 
-            onClick={toggleTheme}
-            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <button
-            onClick={logout}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-body font-semibold transition-opacity hover:opacity-90"
-            style={{ 
-              fontSize: 13, 
-              background: '#fef2f2', 
-              border: '1.5px solid #fca5a5', 
-              color: '#b91c1c', 
-              cursor: 'pointer' 
+
+      <div className="flex-1 max-w-xl mx-auto relative" ref={dropdownRef}>
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Search size={18} className="text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+          </div>
+          <input
+            type="text"
+            className="w-full bg-slate-100 dark:bg-slate-900/50 border-none rounded-2xl py-3 pl-11 pr-4 font-body text-sm focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-400"
+            placeholder="Search items, categories, or notes..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowDropdown(true);
             }}
-            title="Sign out"
-          >
-            <LogOut size={15} />
-            <span className="hidden sm:inline">Sign Out</span>
-          </button>
+            onFocus={() => setShowDropdown(true)}
+          />
         </div>
+
+        {showDropdown && searchResults.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-2 p-2 panel-card shadow-2xl z-[100] animate-scale-up">
+            {searchResults.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleItemClick(item)}
+                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group"
+              >
+                <div className="flex flex-col items-start">
+                  <span className="font-body font-bold text-sm text-slate-700 dark:text-slate-200">{item.name}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">{item.category}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <StatusBadge status={getStatus(item)} />
+                  <span className="font-body font-bold text-sm text-slate-500 group-hover:text-blue-500 transition-colors">{item.quantity} {item.unit}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="topbar-right flex items-center gap-3 ml-auto">
+        <button 
+          onClick={toggleTheme}
+          className="w-11 h-11 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:border-blue-400 dark:hover:border-blue-500/50 transition-all shadow-sm"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+        
+        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
+
+        <button
+          onClick={logout}
+          className="group flex items-center gap-2 px-5 py-3 rounded-2xl font-body font-bold text-sm bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white dark:hover:bg-red-600 dark:hover:text-white transition-all shadow-sm"
+        >
+          <LogOut size={16} className="group-hover:translate-x-0.5 transition-transform" />
+          <span className="hidden sm:inline">Sign Out</span>
+        </button>
       </div>
     </div>
   );

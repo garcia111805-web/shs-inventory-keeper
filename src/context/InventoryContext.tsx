@@ -10,7 +10,7 @@ interface InventoryContextType {
   loading: boolean;
   setCurrentPage: (page: PageName) => void;
   setSearchQuery: (q: string) => void;
-  addItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => Promise<void>;
+  addItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => Promise<{ merged: boolean }>;
   updateItem: (item: InventoryItem) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   addTransaction: (tx: Omit<Transaction, 'id'>) => Promise<void>;
@@ -146,9 +146,55 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
 
   // ─── CRUD operations via Supabase ───
-  const addItem = useCallback(async (data: Omit<InventoryItem, 'id' | 'lastUpdated'>) => {
+  const addItem = useCallback(async (data: Omit<InventoryItem, 'id' | 'lastUpdated'>): Promise<{ merged: boolean }> => {
+    const nameUpper = data.name.toUpperCase().trim();
+    
+    // 1. Check if an item with this name already exists
+    const { data: existing, error: fetchErr } = await supabase
+      .from('items')
+      .select('*')
+      .eq('name', nameUpper)
+      .maybeSingle();
+
+    if (fetchErr) {
+      console.error('Check existing item error:', fetchErr);
+      throw fetchErr;
+    }
+
+    if (existing) {
+      // 2. If it exists, merge by updating the quantity
+      const newQty = (existing.quantity || 0) + data.quantity;
+      const { error: updateErr } = await supabase
+        .from('items')
+        .update({
+          quantity: newQty,
+          last_updated: new Date().toISOString().split('T')[0],
+        })
+        .eq('id', existing.id);
+      
+      if (updateErr) {
+        console.error('Merge update error:', updateErr);
+        throw updateErr;
+      }
+
+      // 3. Log a transaction record for the merge
+      await addTransaction({
+        itemId: existing.id,
+        itemName: nameUpper,
+        category: existing.category,
+        type: 'restock',
+        qtyChange: data.quantity,
+        newStock: newQty,
+        by: 'System (Auto-merge)',
+        notes: 'Merged via Add Item UI',
+        date: new Date().toISOString(),
+      });
+      return { merged: true };
+    }
+
+    // 4. If no duplicate, insert as new item
     const { error } = await supabase.from('items').insert({
-      name: data.name.toUpperCase(),
+      name: nameUpper,
       category: data.category,
       unit: data.unit,
       quantity: data.quantity,
@@ -162,8 +208,8 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       console.error('Add item error:', error);
       throw error;
     }
-    // Realtime will handle the state update
-  }, []);
+    return { merged: false };
+  }, [addTransaction]);
 
   const updateItem = useCallback(async (updated: InventoryItem) => {
     const { error } = await supabase.from('items').update({

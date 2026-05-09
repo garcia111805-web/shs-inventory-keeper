@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useInventory } from '../context/InventoryContext';
-import { Category } from '../types';
+import { Category, getCategoryColor } from '../types';
 import ModalOverlay from './ModalOverlay';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -346,7 +346,6 @@ export default function CSVImportModal({ onClose }: Props) {
     showToast(parts.join(' · ') || 'Nothing to import', failCount > 0 ? 'warning' : 'success');
   };
 
-  const catColors: Record<string, string> = { cleaning: '#0d1b6e', office: '#d97706', clinic: '#b91c1c' };
 
   return (
     <ModalOverlay onClose={onClose}>
@@ -473,7 +472,7 @@ export default function CSVImportModal({ onClose }: Props) {
                           )}
                         </td>
                         <td className="px-3 py-1.5">
-                          <span className="font-body font-semibold px-1.5 py-0.5 rounded text-white" style={{ fontSize: 10, background: catColors[row.category] || '#666' }}>
+                          <span className="font-body font-semibold px-1.5 py-0.5 rounded text-white" style={{ fontSize: 10, background: getCategoryColor(row.category) }}>
                             {row.category}
                           </span>
                         </td>

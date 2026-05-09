@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useInventory } from '../context/InventoryContext';
-import { InventoryItem, Category, UNITS } from '../types';
+import { InventoryItem, Category, DEFAULT_UNITS } from '../types';
 import { useLocations } from '../hooks/useLocations';
+import { useCategories } from '../hooks/useCategories';
+import { useUnits } from '../hooks/useUnits';
 import ModalOverlay from './ModalOverlay';
 import { formatItemName } from '../lib/utils';
 
@@ -14,6 +16,8 @@ interface Props {
 export default function AddEditItemModal({ item, defaultCategory, onClose }: Props) {
   const { addItem, updateItem, showToast } = useInventory();
   const { locations } = useLocations();
+  const { categories } = useCategories();
+  const { units: dbUnits } = useUnits();
   const isEdit = !!item;
 
   const [name, setName] = useState(item?.name || '');
@@ -50,7 +54,7 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
         });
         showToast(`${formattedName} updated`, 'success');
       } else {
-        await addItem({
+        const result = await addItem({
           name: formattedName,
           category,
           unit,
@@ -60,7 +64,11 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
           location: location || undefined,
           isConsumable,
         });
-        showToast(`${formattedName} added`, 'success');
+        if (result.merged) {
+          showToast(`Merged with existing ${formattedName}`, 'success');
+        } else {
+          showToast(`${formattedName} added`, 'success');
+        }
       }
       onClose();
     } catch (err: any) {
@@ -82,10 +90,18 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Category</label>
-            <select className="modal-input" value={category} onChange={e => setCategory(e.target.value as Category)}>
-              <option value="cleaning">Cleaning Materials</option>
-              <option value="office">Office Supplies</option>
-              <option value="clinic">Clinic Supplies</option>
+            <select className="modal-input" value={category} onChange={e => setCategory(e.target.value)}>
+              {categories.length === 0 ? (
+                <>
+                  <option value="cleaning">Cleaning Materials</option>
+                  <option value="office">Office Supplies</option>
+                  <option value="clinic">Clinic Supplies</option>
+                </>
+              ) : (
+                categories.map(cat => (
+                  <option key={cat.id} value={cat.name}>{cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}</option>
+                ))
+              )}
             </select>
           </div>
           <div>
@@ -122,9 +138,15 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
           <div>
             <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Unit</label>
             <select className="modal-input" value={unit} onChange={e => setUnit(e.target.value)}>
-              {UNITS.map(u => (
-                <option key={u} value={u}>{u}</option>
-              ))}
+              {dbUnits.length === 0 ? (
+                DEFAULT_UNITS.map(u => (
+                  <option key={u} value={u}>{u}</option>
+                ))
+              ) : (
+                dbUnits.map(u => (
+                  <option key={u.id} value={u.name}>{u.name}</option>
+                ))
+              )}
             </select>
           </div>
           <div>
