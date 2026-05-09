@@ -203,7 +203,5 @@ export default function Sidebar({ isOpen, onClose }: Props) {
       )}
  
     </aside>
-
-    </aside>
   );
 }
