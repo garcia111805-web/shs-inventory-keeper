@@ -189,16 +189,16 @@ export default function Sidebar({ isOpen, onClose }: Props) {
         <div className="px-4 pb-6">
           <button
             onClick={() => handleNav('settings' as PageName)}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-body text-sm transition-all duration-200 hover:shadow-md"
+            className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl font-body text-base transition-all duration-200 hover:shadow-lg border border-slate-200 dark:border-slate-800"
             style={{
-              background: currentPage === 'settings' ? 'var(--sidebar-item-active)' : 'var(--input-bg)',
+              background: currentPage === 'settings' ? 'var(--sidebar-item-active)' : 'var(--card-bg)',
               color: currentPage === 'settings' ? 'var(--sidebar-item-active-text)' : 'var(--sidebar-text)',
-              border: '1px solid var(--sidebar-border)',
-              fontWeight: 600,
+              fontWeight: 800,
+              boxShadow: currentPage === 'settings' ? '0 8px 20px rgba(0,0,0,0.15)' : 'none'
             }}
           >
-            <Settings size={16} />
-            System Settings
+            <Settings size={18} />
+            Settings
           </button>
         </div>
       )}

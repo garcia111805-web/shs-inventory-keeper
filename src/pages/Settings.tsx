@@ -221,7 +221,7 @@ export default function SettingsPage() {
     <div className="p-8 md:p-12 space-y-12 max-w-6xl mx-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 64px)' }}>
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <h1 className="font-heading font-black text-4xl tracking-tight" style={{ color: 'var(--heading-color)' }}>System Config</h1>
+        <h1 className="font-heading font-black text-4xl tracking-tight" style={{ color: 'var(--heading-color)' }}>Settings</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">

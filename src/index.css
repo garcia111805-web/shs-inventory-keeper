@@ -279,6 +279,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: var(--sidebar-bg);
   border-right: 1px solid var(--sidebar-border);
   transition: transform 0.25s ease, background 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-close {
