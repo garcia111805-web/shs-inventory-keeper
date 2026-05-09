@@ -38,8 +38,8 @@ export default function Dashboard() {
         {[
           { label: 'Total Inventory', value: total, color: 'from-blue-600 to-indigo-700', icon: <Package size={24} color="white" /> },
           { label: 'Perfect Stock', value: inStock, color: 'from-emerald-500 to-teal-700', icon: <CheckCircle size={24} color="white" /> },
-          { label: 'Low Stock Alert', value: lowStock, color: 'from-amber-400 to-orange-600', icon: <AlertTriangle size={24} color="white" /> },
-          { label: 'Critical Outage', value: outOfStock, color: 'from-rose-500 to-red-700', icon: <XCircle size={24} color="white" /> },
+          { label: 'Low Stock', value: lowStock, color: 'from-amber-400 to-orange-600', icon: <AlertTriangle size={24} color="white" /> },
+          { label: 'Out of Stock', value: outOfStock, color: 'from-rose-500 to-red-700', icon: <XCircle size={24} color="white" /> },
         ].map((card, i) => (
           <div
             key={i}
@@ -52,14 +52,14 @@ export default function Dashboard() {
                 {card.icon}
               </div>
               <div className="text-right">
-                <div className="font-heading font-black text-3xl tracking-tight" style={{ color: 'var(--heading-color)' }}>
+                <div className="font-heading font-black text-4xl tracking-tight" style={{ color: 'var(--heading-color)' }}>
                   {card.value}
                 </div>
               </div>
             </div>
             
             <div className="mt-4 relative z-10">
-              <div className="font-body font-bold text-xs uppercase tracking-wider" style={{ color: 'var(--muted-text)' }}>
+              <div className="font-body font-bold text-sm uppercase tracking-wider" style={{ color: 'var(--muted-text)' }}>
                 {card.label}
               </div>
             </div>
@@ -159,14 +159,14 @@ export default function Dashboard() {
                        <PackageMinus size={18} />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-body font-bold text-sm truncate" style={{ color: 'var(--heading-color)' }}>{tx.itemName}</div>
-                      <div className="font-body text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-text)' }}>{tx.by}</div>
+                      <div className="font-body font-bold text-base truncate" style={{ color: 'var(--heading-color)' }}>{tx.itemName}</div>
+                      <div className="font-body text-[12px] font-bold uppercase tracking-wider" style={{ color: 'var(--muted-text)' }}>{tx.by}</div>
                     </div>
                     <div className="text-right">
-                      <div className={`font-heading font-black text-sm ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      <div className={`font-heading font-black text-xl ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                         {isPositive ? '+' : '−'}{Math.abs(tx.qtyChange)}
                       </div>
-                      <div className="font-body text-[10px] text-slate-400">
+                      <div className="font-body text-[12px] font-bold text-slate-400">
                         {new Date(tx.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </div>
                     </div>

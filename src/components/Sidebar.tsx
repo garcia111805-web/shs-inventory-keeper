@@ -114,10 +114,10 @@ export default function Sidebar({ isOpen, onClose }: Props) {
             }}
           />
         </div>
-        <h2 className="font-heading font-bold text-center mt-4" style={{ color: 'var(--heading-color)', fontSize: 15 }}>
+        <h2 className="font-heading font-black text-center mt-4" style={{ color: 'var(--heading-color)', fontSize: 18 }}>
           Sucat Senior High
         </h2>
-        <p className="font-body text-[10px] uppercase tracking-widest mt-1" style={{ color: 'var(--muted-text)', opacity: 0.8 }}>
+        <p className="font-body text-[11px] font-bold uppercase tracking-widest mt-1" style={{ color: 'var(--muted-text)', opacity: 1 }}>
           Inventory System
         </p>
       </div>
@@ -126,7 +126,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
       <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-8">
         {filteredSections.map(section => (
           <div key={section.label}>
-            <p className="font-body font-bold uppercase mb-3 px-3" style={{ fontSize: 10, color: 'var(--muted-text)', opacity: 0.6, letterSpacing: '0.1em' }}>
+            <p className="font-body font-black uppercase mb-3 px-3" style={{ fontSize: 11, color: 'var(--muted-text)', opacity: 0.8, letterSpacing: '0.15em' }}>
               {section.label}
             </p>
             <div className="space-y-1">
@@ -138,14 +138,15 @@ export default function Sidebar({ isOpen, onClose }: Props) {
                   <button
                     key={item.page}
                     onClick={() => handleNav(item.page)}
-                    className="w-full text-left px-4 py-2.5 rounded-xl text-sm font-body flex items-center justify-between transition-all duration-200"
+                    className="w-full text-left px-4 py-3 rounded-xl text-base font-body flex items-center justify-between transition-all duration-200"
                     style={active ? {
                       background: 'var(--sidebar-item-active)',
                       color: 'var(--sidebar-item-active-text)',
-                      fontWeight: 600,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                      fontWeight: 800,
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.15)'
                     } : {
                       color: 'var(--sidebar-text)',
+                      fontWeight: 700,
                     }}
                     onMouseEnter={e => {
                       if (!active) {

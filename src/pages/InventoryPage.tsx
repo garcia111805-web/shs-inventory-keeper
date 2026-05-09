@@ -300,7 +300,7 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
           <thead className="sticky-thead">
             <tr style={{ background: 'transparent', borderBottom: '1px solid var(--card-border)' }}>
               {['#', 'ITEM NAME', 'UNIT', 'QTY', 'LOCATION', 'STATUS', 'UPDATED', 'ACTIONS'].map(h => (
-                <th key={h} className="text-left px-4 py-4 font-body uppercase" style={{ fontSize: 13, color: 'var(--fg-color)', fontWeight: 700, opacity: 0.9 }}>
+                <th key={h} className="text-left px-4 py-4 font-body uppercase" style={{ fontSize: 14, color: 'var(--fg-color)', fontWeight: 800, opacity: 1 }}>
                   {h}
                 </th>
               ))}
@@ -312,10 +312,10 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
                 <td colSpan={8} className="text-center py-24">
                   <div className="flex flex-col items-center justify-center gap-3 text-center">
                     <PackageSearch size={64} style={{ color: forcedType === 'return' ? '#15803d' : 'var(--muted-text)', opacity: forcedType === 'return' ? 0.6 : 0.3 }} />
-                    <h3 className="font-heading font-bold" style={{ fontSize: 24, color: forcedType === 'return' ? '#15803d' : 'var(--fg-color)' }}>
+                    <h3 className="font-heading font-bold" style={{ fontSize: 26, color: forcedType === 'return' ? '#15803d' : 'var(--fg-color)' }}>
                       {forcedType === 'return' ? 'No Items to Return' : 'No Items Found'}
                     </h3>
-                    <p className="font-body text-base" style={{ color: 'var(--muted-text)' }}>
+                    <p className="font-body text-lg" style={{ color: 'var(--muted-text)' }}>
                       {forcedType === 'return' 
                         ? 'Your currently borrowed items will appear here when you need to return them.' 
                         : searchQuery 
@@ -329,21 +329,21 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
               const status = getStatus(item);
               return (
                 <tr key={item.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--card-border)' }}>
-                  <td className="px-4 py-4 font-body" style={{ fontSize: 14, color: 'var(--fg-color)', opacity: 0.9 }}>
+                  <td className="px-4 py-4 font-body" style={{ fontSize: 15, color: 'var(--fg-color)', opacity: 1, fontWeight: 600 }}>
                     {idx + 1}
                   </td>
-                  <td className="px-4 py-4 font-body font-bold" style={{ fontSize: 16, color: 'var(--heading-color)' }}>
+                  <td className="px-4 py-4 font-body font-bold" style={{ fontSize: 18, color: 'var(--heading-color)', fontWeight: 800 }}>
                     {item.name}
                   </td>
-                  <td className="px-4 py-4 font-body" style={{ fontSize: 14, color: 'var(--fg-color)', opacity: 0.8 }}>
+                  <td className="px-4 py-4 font-body" style={{ fontSize: 15, color: 'var(--fg-color)', opacity: 0.9, fontWeight: 600 }}>
                     {item.unit}
                   </td>
-                  <td className="px-4 py-4 font-body font-bold" style={{ fontSize: 16, color: statusColor(status), letterSpacing: '-0.5px' }}>
+                  <td className="px-4 py-4 font-body font-bold" style={{ fontSize: 18, color: statusColor(status), letterSpacing: '-0.5px', fontWeight: 900 }}>
                     {item.quantity}
                   </td>
-                  <td className="px-4 py-4 font-body" style={{ fontSize: 14, color: 'var(--fg-color)', opacity: 0.9 }}>
+                  <td className="px-4 py-4 font-body" style={{ fontSize: 15, color: 'var(--fg-color)', opacity: 1, fontWeight: 600 }}>
                     {item.location ? (
-                      <span className="px-3 py-1 rounded-full font-body font-bold whitespace-nowrap shadow-sm" style={{ fontSize: 11, background: 'var(--location-bg)', color: 'var(--location-text)', border: '1px solid var(--location-border)' }}>
+                      <span className="px-3 py-1 rounded-full font-body font-bold whitespace-nowrap shadow-sm" style={{ fontSize: 12, background: 'var(--location-bg)', color: 'var(--location-text)', border: '1px solid var(--location-border)', fontWeight: 800 }}>
                         {item.location}
                       </span>
                     ) : (

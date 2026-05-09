@@ -101,10 +101,10 @@ function ModernSelect({ value, onChange, options, label }: { value: string, onCh
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl font-body font-semibold transition-all"
-        style={{ 
-          fontSize: 14, 
-          background: 'var(--input-bg)', 
-          border: '1px solid var(--card-border)', 
+        style={{
+          fontSize: 14,
+          background: 'var(--input-bg)',
+          border: '1px solid var(--card-border)',
           color: 'var(--fg-color)',
           boxShadow: isOpen ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none'
         }}
@@ -112,7 +112,7 @@ function ModernSelect({ value, onChange, options, label }: { value: string, onCh
         <span className="truncate">{currentLabel}</span>
         <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
-      
+
       {isOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
@@ -124,8 +124,8 @@ function ModernSelect({ value, onChange, options, label }: { value: string, onCh
                   key={opt.value}
                   onClick={() => { onChange(opt.value); setIsOpen(false); }}
                   className="w-full text-left px-4 py-3 font-body transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                  style={{ 
-                    fontSize: 14, 
+                  style={{
+                    fontSize: 14,
                     color: value === opt.value ? 'var(--accent-color)' : 'var(--fg-color)',
                     background: value === opt.value ? 'var(--accent-glow)' : 'transparent',
                     fontWeight: value === opt.value ? 700 : 500
@@ -220,19 +220,8 @@ export default function SettingsPage() {
   return (
     <div className="p-8 md:p-12 space-y-12 max-w-6xl mx-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 64px)' }}>
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-6">
-          <div
-            className="rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-500/20"
-            style={{ width: 72, height: 72, background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}
-          >
-            <Settings size={36} color="white" />
-          </div>
-          <div>
-            <h1 className="font-heading font-black text-4xl tracking-tight" style={{ color: 'var(--heading-color)' }}>System Config</h1>
-            <p className="font-body text-base mt-1" style={{ color: 'var(--muted-text)' }}>Manage your workspace preferences and security</p>
-          </div>
-        </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <h1 className="font-heading font-black text-4xl tracking-tight" style={{ color: 'var(--heading-color)' }}>System Config</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -408,7 +397,7 @@ export default function SettingsPage() {
 function UserManagementSection() {
   const { showToast } = useInventory();
   const { users, loading, addUser, deleteUser } = useUsers();
-  
+
   const [fullName, setFullName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [pin, setPin] = useState('');
@@ -425,7 +414,7 @@ function UserManagementSection() {
     try {
       const finalId = employeeId || `USER-${Date.now()}`;
       const finalPin = role === 'admin' ? pin : '0000';
-      
+
       if (role === 'admin' && (!pin || pin.length !== 4)) {
         showToast('Admins must have a 4-digit PIN', 'error');
         setIsAdding(false);
@@ -475,7 +464,7 @@ function UserManagementSection() {
           <UserPlus size={18} className="text-rose-500" />
           <span className="font-heading font-black text-sm uppercase tracking-wider" style={{ color: 'var(--heading-color)' }}>New Account</span>
         </div>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Display Name</label>
@@ -500,9 +489,9 @@ function UserManagementSection() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Access Role</label>
-            <ModernSelect 
+            <ModernSelect
               label="Select Role"
-              value={role} 
+              value={role}
               onChange={(v) => setRole(v as UserRole)}
               options={[
                 { value: 'borrower', label: 'Staff Member' },
@@ -529,7 +518,7 @@ function UserManagementSection() {
           onClick={handleAddUser}
           disabled={isAdding}
           className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-body font-black text-white transition-all active:scale-[0.98] shadow-lg shadow-rose-500/20"
-          style={{ 
+          style={{
             background: 'linear-gradient(135deg, #f43f5e, #e11d48)'
           }}
         >
@@ -551,24 +540,27 @@ function UserManagementSection() {
             key={user.id}
             className="group flex items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-white/5 hover:border-rose-300 dark:hover:border-rose-900/50 transition-all duration-300 shadow-sm hover:shadow-md"
           >
-            <div 
-              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${
-                user.role === 'admin' ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-              }`}
+            <div
+              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${user.role === 'admin' ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                }`}
             >
               {user.role === 'admin' ? <ShieldCheck size={22} /> : <Users size={22} />}
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-body font-black text-sm truncate" style={{ color: 'var(--heading-color)' }}>{user.fullName}</div>
               <div className="flex items-center gap-3 mt-0.5">
-                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
-                  user.role === 'admin' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                }`}>
+                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${user.role === 'admin' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                  }`}>
                   {user.role}
                 </span>
                 <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1">
                   <Fingerprint size={10} /> {user.employeeId.length > 10 ? user.employeeId.slice(0, 10) + '...' : user.employeeId}
                 </span>
+                {user.role === 'admin' && (
+                  <span className="text-[10px] font-black tracking-[0.2em] px-2 py-1 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-2 border border-amber-500/20 shadow-sm">
+                    <Key size={10} /> PIN: {user.pin}
+                  </span>
+                )}
               </div>
             </div>
             <button

@@ -102,6 +102,8 @@
 
 body {
   font-family: 'Inter', 'Outfit', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 500;
   background: var(--app-bg);
   color: var(--fg-color);
   min-height: 100vh;
@@ -111,7 +113,8 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Outfit', sans-serif;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  font-weight: 900;
 }
 
 .panel-card {
