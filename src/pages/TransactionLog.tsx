@@ -59,7 +59,7 @@ function ModernSelect({ value, onChange, options, label }: { value: string, onCh
 }
 
 export default function TransactionLog() {
-  const { transactions, searchQuery: globalSearch, voidTransaction, showToast, refreshData } = useInventory();
+  const { transactions, searchQuery: globalSearch, voidTransaction, showToast, refreshData, loading } = useInventory();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { role } = useAuth();
   const isAdmin = role === 'admin';
@@ -200,10 +200,11 @@ export default function TransactionLog() {
                   <div className="flex flex-col items-center gap-2">
                     <ClipboardX size={48} style={{ color: 'var(--muted-text)', opacity: 0.4 }} />
                     <p className="font-body font-semibold" style={{ fontSize: 16, color: 'var(--fg-color)' }}>
-                      {transactions.length === 0 ? 'Loading from database...' : 'No Transactions Found'}
+                      {loading ? 'Loading from database...' : 'No Transactions Found'}
                     </p>
                     <p className="font-body" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
-                      {transactions.length > 0 && search ? `We found ${transactions.length} total records, but none match "${search}".` : 'Please check your internet connection or try a different name.'}
+                      {loading ? 'Please wait while we fetch your records.' : 
+                        (transactions.length > 0 && search ? `We found ${transactions.length} total records, but none match "${search}".` : 'Your transaction history is completely clean and empty.')}
                     </p>
                   </div>
                 </td>

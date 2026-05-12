@@ -388,31 +388,37 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const voidTransaction = useCallback(async (tx: Transaction) => {
-    // 1. Fetch current stock to revert accurately
-    const { data: item, error: fetchErr } = await supabase.from('items').select('quantity, quarantine_quantity').eq('id', tx.itemId).single();
-    if (fetchErr || !item) {
-      console.error('Fetch item error:', fetchErr);
-      throw new Error("Item not found or deleted");
+    // 1. Fetch current stock to revert accurately (if item still exists)
+    let item = null;
+    if (tx.itemId) {
+      try {
+        const { data } = await supabase.from('items').select('quantity, quarantine_quantity').eq('id', tx.itemId).maybeSingle();
+        item = data;
+      } catch (e) {
+        // Ignore fetch errors (e.g. invalid UUIDs for deleted items)
+      }
     }
 
-    const revertedStock = (tx.type === 'quarantine' || tx.type === 'release') ? item.quantity : item.quantity - tx.qtyChange;
-    // If it was quarantine, we need to reduce quarantine stock. If release, we increase it.
-    let revertedQuarantine = item.quarantine_quantity || 0;
-    if (tx.type === 'quarantine') revertedQuarantine -= Math.abs(tx.qtyChange);
-    if (tx.type === 'release') revertedQuarantine += Math.abs(tx.qtyChange);
+    // Only attempt to revert stock if the item hasn't been deleted from inventory
+    if (item) {
+      const revertedStock = (tx.type === 'quarantine' || tx.type === 'release') ? item.quantity : item.quantity - tx.qtyChange;
+      let revertedQuarantine = item.quarantine_quantity || 0;
+      if (tx.type === 'quarantine') revertedQuarantine -= Math.abs(tx.qtyChange);
+      if (tx.type === 'release') revertedQuarantine += Math.abs(tx.qtyChange);
 
-    const { error: updateErr } = await supabase
-      .from('items')
-      .update({
-        quantity: revertedStock,
-        quarantine_quantity: revertedQuarantine,
-        last_updated: new Date().toISOString().split('T')[0],
-      })
-      .eq('id', tx.itemId);
+      const { error: updateErr } = await supabase
+        .from('items')
+        .update({
+          quantity: revertedStock,
+          quarantine_quantity: revertedQuarantine,
+          last_updated: new Date().toISOString().split('T')[0],
+        })
+        .eq('id', tx.itemId);
 
-    if (updateErr) {
-      console.error('Revert stock error:', updateErr);
-      throw updateErr;
+      if (updateErr) {
+        console.error('Revert stock error:', updateErr);
+        throw updateErr;
+      }
     }
 
     // 2. Delete transaction record
