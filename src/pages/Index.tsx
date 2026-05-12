@@ -59,6 +59,15 @@ export default function Index() {
       case 'dashboard': return <Dashboard />;
       case 'transactions': return <TransactionLog />;
       case 'reports': return <Reports />;
+      case 'quarantine': return (
+        <InventoryPage
+          category="all"
+          onAddItem={() => setShowAddItem(true)}
+          onImportCSV={() => setShowCSVImport(true)}
+          onStockMovement={handleQuickAction}
+          initialQuarantineFilter={true}
+        />
+      );
       case 'settings': return <SettingsPage />;
       case 'portal': return (
         <div className="p-4 md:p-8">
@@ -202,6 +211,7 @@ export default function Index() {
         <StockMovementModal
           defaultType={stockMovementType}
           item={stockMovementItem}
+          lockType={true}
           onClose={closeStockMovement}
         />
       )}

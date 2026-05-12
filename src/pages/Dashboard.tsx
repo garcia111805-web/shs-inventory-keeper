@@ -132,7 +132,7 @@ export default function Dashboard() {
         {/* Right: Recent Activity — takes 2 columns */}
         <div className="xl:col-span-2 panel-card flex flex-col p-8 space-y-6">
           <div>
-            <h3 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>Global Activity</h3>
+            <h3 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>Recent Activity</h3>
             <p className="font-body text-sm mt-1" style={{ color: 'var(--muted-text)' }}>Latest inventory movements</p>
           </div>
 
@@ -176,9 +176,34 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          {/* Legend */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+            <p className="font-body font-black text-xs uppercase tracking-widest" style={{ color: 'var(--muted-text)' }}>Legend</p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {[
+                { icon: <PackagePlus size={18} />, label: 'Restock', bg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400' },
+                { icon: <PackageMinus size={18} />, label: 'Use / Consume', bg: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400' },
+                { icon: <Handshake size={18} />, label: 'Borrow', bg: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400' },
+                { icon: <CornerDownLeft size={18} />, label: 'Return', bg: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400' },
+              ].map(l => (
+                <div key={l.label} className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${l.bg}`}>{l.icon}</div>
+                  <span className="font-body font-bold text-sm" style={{ color: 'var(--muted-text)' }}>{l.label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-5 pt-1">
+              <div className="flex items-center gap-2">
+                <span className="font-heading font-black text-lg text-emerald-600 dark:text-emerald-400">+</span>
+                <span className="font-body font-bold text-sm" style={{ color: 'var(--muted-text)' }}>Stock increased</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-heading font-black text-lg text-rose-600 dark:text-rose-400">−</span>
+                <span className="font-body font-bold text-sm" style={{ color: 'var(--muted-text)' }}>Stock decreased</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 pt-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
               Live Updates Enabled
             </div>
           </div>

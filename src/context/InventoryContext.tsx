@@ -12,6 +12,9 @@ interface InventoryContextType {
   setSearchQuery: (q: string) => void;
   addItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => Promise<{ merged: boolean }>;
   updateItem: (item: InventoryItem) => Promise<void>;
+  moveItemToQuarantine: (itemId: string, qty: number, notes: string, by: string, isReturn?: boolean) => Promise<void>;
+  releaseFromQuarantine: (itemId: string, qty: number, notes: string, by: string) => Promise<void>;
+  disposeFromQuarantine: (itemId: string, qty: number, notes: string, by: string) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   addTransaction: (tx: Omit<Transaction, 'id'>) => Promise<void>;
   updateTransaction: (tx: Transaction) => Promise<void>;
@@ -50,6 +53,7 @@ function mapItem(row: any): InventoryItem {
     category: (row.category || '').toLowerCase() as Category,
     unit: row.unit || 'pcs',
     quantity: row.quantity ?? 0,
+    quarantineQuantity: row.quarantine_quantity ?? row.quarantineQuantity ?? 0,
     lowStockThreshold: row.low_stock_threshold ?? row.lowStockThreshold ?? 5,
     notes: row.notes || '',
     lastUpdated: row.last_updated || row.lastUpdated || new Date().toISOString().split('T')[0],
@@ -242,6 +246,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       category: data.category,
       unit: data.unit,
       quantity: data.quantity,
+      quarantine_quantity: data.quarantineQuantity || 0,
       low_stock_threshold: data.lowStockThreshold,
       notes: data.notes,
       location: data.location || null,
@@ -261,6 +266,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       category: updated.category,
       unit: updated.unit,
       quantity: updated.quantity,
+      quarantine_quantity: updated.quarantineQuantity,
       low_stock_threshold: updated.lowStockThreshold,
       notes: updated.notes,
       location: updated.location || null,
@@ -272,6 +278,93 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       throw error;
     }
   }, []);
+
+  const moveItemToQuarantine = useCallback(async (itemId: string, qty: number, notes: string, by: string, isReturn: boolean = false) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) throw new Error('Item not found');
+    
+    // If it's a return, we don't reduce available stock (it was already out)
+    const newAvailable = isReturn ? item.quantity : item.quantity - qty;
+    if (!isReturn && item.quantity < qty) throw new Error('Insufficient available stock');
+    
+    const newQuarantine = (item.quarantineQuantity || 0) + qty;
+
+    const { error } = await supabase.from('items').update({
+      quantity: newAvailable,
+      quarantine_quantity: newQuarantine,
+      last_updated: new Date().toISOString().split('T')[0],
+    }).eq('id', itemId);
+
+    if (error) throw error;
+
+    await addTransaction({
+      itemId,
+      itemName: item.name,
+      category: item.category,
+      type: 'quarantine',
+      qtyChange: isReturn ? qty : -qty, // Positive for return to clear debt, negative for move from shelf
+      newStock: newAvailable,
+      by,
+      notes: isReturn ? `Damaged Return: ${notes}` : `Moved to Quarantine: ${notes}`,
+      date: new Date().toISOString(),
+    });
+  }, [items, addTransaction]);
+
+  const releaseFromQuarantine = useCallback(async (itemId: string, qty: number, notes: string, by: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) throw new Error('Item not found');
+    if (item.quarantineQuantity < qty) throw new Error('Insufficient quarantined stock');
+
+    const newAvailable = item.quantity + qty;
+    const newQuarantine = item.quarantineQuantity - qty;
+
+    const { error } = await supabase.from('items').update({
+      quantity: newAvailable,
+      quarantine_quantity: newQuarantine,
+      last_updated: new Date().toISOString().split('T')[0],
+    }).eq('id', itemId);
+
+    if (error) throw error;
+
+    await addTransaction({
+      itemId,
+      itemName: item.name,
+      category: item.category,
+      type: 'release',
+      qtyChange: qty,
+      newStock: newAvailable,
+      by,
+      notes: `Released from Quarantine: ${notes}`,
+      date: new Date().toISOString(),
+    });
+  }, [items, addTransaction]);
+
+  const disposeFromQuarantine = useCallback(async (itemId: string, qty: number, notes: string, by: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) throw new Error('Item not found');
+    if (item.quarantineQuantity < qty) throw new Error('Insufficient quarantined stock');
+
+    const newQuarantine = item.quarantineQuantity - qty;
+
+    const { error } = await supabase.from('items').update({
+      quarantine_quantity: newQuarantine,
+      last_updated: new Date().toISOString().split('T')[0],
+    }).eq('id', itemId);
+
+    if (error) throw error;
+
+    await addTransaction({
+      itemId,
+      itemName: item.name,
+      category: item.category,
+      type: 'use',
+      qtyChange: -qty,
+      newStock: item.quantity,
+      by,
+      notes: `Disposed from Quarantine: ${notes}`,
+      date: new Date().toISOString(),
+    });
+  }, [items, addTransaction]);
 
   const deleteItem = useCallback(async (id: string) => {
     const { error } = await supabase.from('items').delete().eq('id', id);
@@ -296,18 +389,23 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   const voidTransaction = useCallback(async (tx: Transaction) => {
     // 1. Fetch current stock to revert accurately
-    const { data: item, error: fetchErr } = await supabase.from('items').select('quantity').eq('id', tx.itemId).single();
+    const { data: item, error: fetchErr } = await supabase.from('items').select('quantity, quarantine_quantity').eq('id', tx.itemId).single();
     if (fetchErr || !item) {
       console.error('Fetch item error:', fetchErr);
       throw new Error("Item not found or deleted");
     }
 
-    const revertedStock = item.quantity - tx.qtyChange;
+    const revertedStock = (tx.type === 'quarantine' || tx.type === 'release') ? item.quantity : item.quantity - tx.qtyChange;
+    // If it was quarantine, we need to reduce quarantine stock. If release, we increase it.
+    let revertedQuarantine = item.quarantine_quantity || 0;
+    if (tx.type === 'quarantine') revertedQuarantine -= Math.abs(tx.qtyChange);
+    if (tx.type === 'release') revertedQuarantine += Math.abs(tx.qtyChange);
 
     const { error: updateErr } = await supabase
       .from('items')
       .update({
         quantity: revertedStock,
+        quarantine_quantity: revertedQuarantine,
         last_updated: new Date().toISOString().split('T')[0],
       })
       .eq('id', tx.itemId);
@@ -334,6 +432,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       items, transactions, currentPage, searchQuery, loading,
       setCurrentPage, setSearchQuery,
       addItem, updateItem, deleteItem, addTransaction, updateTransaction, voidTransaction, refreshData, showToast, toasts,
+      moveItemToQuarantine, releaseFromQuarantine, disposeFromQuarantine,
     }}>
       {children}
     </InventoryContext.Provider>

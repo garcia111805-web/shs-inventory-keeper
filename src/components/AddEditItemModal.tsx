@@ -33,7 +33,10 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
   const handleSubmit = async () => {
     if (!name.trim() || loading) return;
     const formattedName = formatItemName(name);
+    const formattedUnit = unit.trim().toUpperCase();
+    const formattedLocation = location.trim().toUpperCase();
     const qtyVal = parseInt(quantity) || 0;
+    
     if (qtyVal < 0) {
       showToast('Quantity cannot be negative', 'warning');
       return;
@@ -45,11 +48,11 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
           ...item,
           name: formattedName,
           category,
-          unit,
+          unit: formattedUnit,
           quantity: parseInt(quantity) || 0,
           lowStockThreshold: parseInt(threshold) || 3,
           notes,
-          location: location || undefined,
+          location: formattedLocation || undefined,
           isConsumable,
         });
         showToast(`${formattedName} updated`, 'success');
@@ -57,11 +60,11 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
         const result = await addItem({
           name: formattedName,
           category,
-          unit,
+          unit: formattedUnit,
           quantity: parseInt(quantity) || 0,
           lowStockThreshold: parseInt(threshold) || 3,
           notes,
-          location: location || undefined,
+          location: formattedLocation || undefined,
           isConsumable,
         });
         if (result.merged) {
@@ -134,7 +137,7 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className={`grid ${isEdit ? 'grid-cols-2' : 'grid-cols-3'} gap-3`}>
           <div>
             <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Unit</label>
             <select className="modal-input" value={unit} onChange={e => setUnit(e.target.value)}>
@@ -149,10 +152,12 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
               )}
             </select>
           </div>
-          <div>
-            <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>{isEdit ? 'Quantity' : 'Initial Stock Level'}</label>
-            <input className="modal-input" type="number" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} />
-          </div>
+          {!isEdit && (
+            <div>
+              <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)' }}>Initial Stock Level</label>
+              <input className="modal-input" type="number" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} />
+            </div>
+          )}
           <div>
             <label className="font-body text-xs mb-1 block" style={{ color: 'var(--muted-text)', display: 'flex', alignItems: 'center', gap: 4 }}>
               Low Stock Threshold

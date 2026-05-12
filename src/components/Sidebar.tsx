@@ -66,6 +66,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
       label: 'RECORDS',
       items: [
         { page: 'transactions' as PageName, label: 'Transaction Log' },
+        { page: 'quarantine' as PageName, label: 'Quarantine List' },
         { page: 'reports' as PageName, label: 'Reports' },
       ],
     },
@@ -162,8 +163,12 @@ export default function Sidebar({ isOpen, onClose }: Props) {
                     }}
                   >
                     <span className="flex items-center gap-3">
-                      <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-white' : 'bg-slate-300 dark:bg-slate-700'}`}></span>
-                      {item.label}
+                      {item.page === 'quarantine' ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                      ) : (
+                        <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-white' : 'bg-slate-300 dark:bg-slate-700'}`}></span>
+                      )}
+                      <span style={{ color: item.page === 'quarantine' && !active ? '#dc2626' : undefined }}>{item.label}</span>
                     </span>
                     {badgeCount > 0 && (
                       <span className="font-body font-bold rounded-lg px-2 py-0.5" style={{

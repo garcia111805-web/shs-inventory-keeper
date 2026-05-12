@@ -15,6 +15,8 @@ import { Search, ArrowLeftRight, Calendar, Clock } from 'lucide-react';
 interface Props {
   item?: InventoryItem;
   defaultType?: TransactionType;
+  lockType?: boolean;
+  maxReturnQty?: number;
   onClose: () => void;
 }
 
@@ -25,9 +27,9 @@ const TYPE_CONFIG: { type: TransactionType; label: string; color: string }[] = [
   { type: 'return', label: 'Return', color: '#16a34a' },
 ];
 
-export default function StockMovementModal({ item: prefilledItem, defaultType, onClose }: Props) {
+export default function StockMovementModal({ item: prefilledItem, defaultType, lockType, maxReturnQty, onClose }: Props) {
   const { theme } = useTheme();
-  const { items, addTransaction, showToast } = useInventory();
+  const { items, addTransaction, moveItemToQuarantine, showToast } = useInventory();
   const { role, user } = useAuth();
 
   const isAdmin = role === 'admin';
@@ -37,27 +39,32 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(prefilledItem || null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const availableTypes = useMemo(() => {
-    let base = isAdmin ? TYPE_CONFIG : TYPE_CONFIG.filter(tc => tc.type !== 'restock');
-    if (selectedItem) {
-      if (selectedItem.isConsumable) {
-        return base.filter(tc => tc.type !== 'borrow');
-      } else {
-        return base.filter(tc => tc.type !== 'use');
-      }
-    }
-    return base;
-  }, [isAdmin, selectedItem]);
-
-
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType || 'restock');
-  const [qty, setQty] = useState('');
+  const [qty, setQty] = useState(maxReturnQty ? String(maxReturnQty) : '');
   const [by, setBy] = useState(user?.fullName || '');
   const [returnDate, setReturnDate] = useState('');
   const [notes, setNotes] = useState('');
   const [datePart, setDatePart] = useState(new Date().toISOString().slice(0, 10));
   const [timePart, setTimePart] = useState(new Date().toTimeString().slice(0, 5));
+  const [isDamaged, setIsDamaged] = useState(false);
+
+  const availableTypes = useMemo(() => {
+    let base = isAdmin ? TYPE_CONFIG : TYPE_CONFIG.filter(tc => tc.type !== 'restock');
+    
+    // Safety check: Always keep the current 'type' or 'defaultType' in the list 
+    // so it doesn't disappear if classifications are mixed up.
+    const mustInclude = new Set([type, defaultType]);
+
+    if (selectedItem) {
+      if (selectedItem.isConsumable) {
+        return base.filter(tc => tc.type !== 'borrow' || mustInclude.has(tc.type));
+      } else {
+        return base.filter(tc => tc.type !== 'use' || mustInclude.has(tc.type));
+      }
+    }
+    return base;
+  }, [isAdmin, selectedItem, type, defaultType]);
 
   // Validation state
   const [touched, setTouched] = useState(false);
@@ -90,7 +97,11 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
       : (selectedItem?.quantity ?? 0) - qtyNum;
 
   const isQtyValid =
-    qtyNum > 0 && (type === 'restock' || type === 'return' || newStock >= 0);
+    qtyNum > 0 && (
+      type === 'restock' || 
+      (type === 'return' && (!maxReturnQty || qtyNum <= maxReturnQty)) || 
+      (type !== 'restock' && type !== 'return' && newStock >= 0)
+    );
   const isByValid = by.trim().length > 0;
   const isReturnValid = type !== 'borrow' || returnDate !== '';
   const canSubmit =
@@ -101,25 +112,38 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
 
   const handleSubmit = async () => {
     setTouched(true);
-    if (!canSubmit || loading) return;
+    if (!selectedItem || !canSubmit || loading) return;
     setLoading(true);
     try {
-      await addTransaction({
-        itemId: selectedItem.id,
-        itemName: selectedItem.name,
-        category: selectedItem.category,
-        type,
-        qtyChange: (type === 'restock' || type === 'return') ? qtyNum : -qtyNum,
-        newStock,
-        by: by.trim(),
-        returnDate: type === 'borrow' ? returnDate : undefined,
-        notes,
-        date: new Date(`${datePart}T${timePart}`).toISOString(),
-      });
-      showToast(
-        `${type.charAt(0).toUpperCase() + type.slice(1)} recorded for ${selectedItem.name}`,
-        'success',
-      );
+      if (type === 'return' && isDamaged) {
+        // Use the specialized quarantine function for returns
+        await moveItemToQuarantine(
+          selectedItem.id,
+          qtyNum,
+          notes || 'Returned as damaged',
+          by.trim(),
+          true // isReturn = true
+        );
+        showToast(`Returned ${qtyNum} ${selectedItem.unit} to Quarantine`, 'success');
+      } else {
+        // Regular transaction
+        await addTransaction({
+          itemId: selectedItem.id,
+          itemName: selectedItem.name,
+          category: selectedItem.category,
+          type,
+          qtyChange: (type === 'restock' || type === 'return') ? qtyNum : -qtyNum,
+          newStock,
+          by: by.trim(),
+          returnDate: type === 'borrow' ? returnDate : undefined,
+          notes,
+          date: new Date(`${datePart}T${timePart}`).toISOString(),
+        });
+        showToast(
+          `${type.charAt(0).toUpperCase() + type.slice(1)} recorded for ${selectedItem.name}`,
+          'success',
+        );
+      }
       onClose();
     } catch (err: any) {
       showToast(err?.message || 'Operation failed. Please try again.', 'error');
@@ -132,8 +156,9 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
 
   return (
     <ModalOverlay onClose={onClose}>
+      <div className="max-h-[85vh] overflow-y-auto px-1 -mx-1 scrollbar-hide">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-3">
         <div
           className="rounded-xl flex items-center justify-center"
           style={{ width: 36, height: 36, background: activeColor, transition: 'background 0.25s' }}
@@ -144,7 +169,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
           className="font-heading font-bold"
           style={{ fontSize: 24, color: 'var(--heading-color)' }}
         >
-          {type === 'borrow' ? 'Borrow Item' : type === 'use' ? 'Use Item' : 'Restock Item'}
+          {type === 'borrow' ? 'Borrow Item' : type === 'use' ? 'Use Item' : type === 'return' ? 'Return Item' : 'Restock Item'}
         </h3>
       </div>
 
@@ -245,7 +270,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
       )}
 
       {/* Type selector pills */}
-      {availableTypes.length > 1 && (
+      {availableTypes.length > 1 && !lockType && (
         <div className="flex gap-2 mb-4">
           {availableTypes.map(tc => (
             <button
@@ -279,10 +304,15 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
               className={fieldClass(isQtyValid)}
               type="number"
               min="1"
-              max={type !== 'restock' ? selectedItem?.quantity : undefined}
+              max={type === 'return' && maxReturnQty ? maxReturnQty : (type !== 'restock' && type !== 'return' ? selectedItem?.quantity : undefined)}
               value={qty}
               onChange={e => setQty(e.target.value)}
             />
+            {type === 'return' && maxReturnQty && (
+              <p className="mt-1 font-body font-bold" style={{ fontSize: 11, color: '#b91c1c' }}>
+                Max returnable: {maxReturnQty} {selectedItem?.unit}
+              </p>
+            )}
           </div>
           <div className="col-span-2 flex items-center justify-between mt-1">
             <span className="font-body text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-text)', fontSize: 10 }}>
@@ -333,7 +363,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
             className="font-body text-xs mb-1 block"
             style={{ color: 'var(--muted-text)' }}
           >
-            Staff Member {type === 'borrow' ? 'Borrowing' : type === 'restock' ? 'Restocking' : 'Using'} <span style={{ color: '#b91c1c' }}>*</span>
+            Staff Member {type === 'borrow' ? 'Borrowing' : type === 'restock' ? 'Restocking' : type === 'return' ? 'Returning' : 'Using'} <span style={{ color: '#b91c1c' }}>*</span>
           </label>
           <input
             className={fieldClass(isByValid)}
@@ -384,22 +414,56 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
         </div>
       </div>
 
+      {/* Quarantine Toggle for Returns */}
+      {type === 'return' && (
+        <div className="mt-2 p-4 rounded-2xl flex items-center justify-between transition-all" 
+             style={{ 
+               background: isDamaged ? 'rgba(185,28,28,0.1)' : 'var(--input-bg)',
+               border: `1px solid ${isDamaged ? '#fca5a5' : 'var(--card-border)'}` 
+             }}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDamaged ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-200 text-slate-400'}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            </div>
+            <div>
+              <p className="font-body font-black" style={{ fontSize: 13, color: isDamaged ? '#b91c1c' : 'var(--fg-color)' }}>
+                Mark as Damaged
+              </p>
+              <p className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
+                Move item directly to quarantine
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsDamaged(!isDamaged)}
+            className={`w-12 h-6 rounded-full relative transition-all duration-300 ${isDamaged ? 'bg-red-600' : 'bg-slate-300'}`}
+          >
+            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isDamaged ? 'translate-x-6' : ''}`} />
+          </button>
+        </div>
+      )}
+
       {/* Stock preview */}
       {qtyNum > 0 && selectedItem && (
         <div 
           className="mt-3 p-3 rounded-xl font-body" 
           style={{ 
             fontSize: 13, 
-            background: newStock < 0 ? 'rgba(185,28,28,0.1)' : 'rgba(21,128,61,0.08)',
-            border: `1px solid ${newStock < 0 ? 'rgba(185,28,28,0.2)' : 'rgba(21,128,61,0.15)'}`,
-            color: newStock < 0 ? '#b91c1c' : '#15803d'
+            background: isDamaged ? 'rgba(185,28,28,0.05)' : (newStock < 0 ? 'rgba(185,28,28,0.1)' : 'rgba(21,128,61,0.08)'),
+            border: `1px solid ${isDamaged ? 'rgba(185,28,28,0.1)' : (newStock < 0 ? 'rgba(185,28,28,0.2)' : 'rgba(21,128,61,0.15)')}`,
+            color: isDamaged ? '#b91c1c' : (newStock < 0 ? '#b91c1c' : '#15803d')
           }}
         >
           <div className="flex justify-between items-center">
-            <span>Resulting Stock:</span>
-            <span className="font-bold" style={{ fontSize: 15 }}>{newStock} {selectedItem.unit}</span>
+            <span>{isDamaged ? 'Stock Status:' : 'Resulting Stock:'}</span>
+            <span className="font-bold" style={{ fontSize: 15 }}>
+              {isDamaged 
+                ? `+${qtyNum} to Quarantine` 
+                : `${newStock} ${selectedItem.unit}`}
+            </span>
           </div>
-          {newStock < 0 && (
+          {newStock < 0 && !isDamaged && (
             <p className="mt-1 font-semibold" style={{ fontSize: 11 }}>
               ⚠️ You cannot use/borrow more than the current stock.
             </p>
@@ -418,15 +482,16 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, o
           className="px-8 py-3 rounded-xl font-body font-bold transition-all shadow-lg active:scale-95"
           style={{
             fontSize: 16,
-            background: activeColor,
+            background: isDamaged ? '#b91c1c' : activeColor,
             color: 'white',
             opacity: canSubmit && !loading ? 1 : 0.7,
             cursor: canSubmit && !loading ? 'pointer' : 'not-allowed',
             border: 'none',
           }}
         >
-          {loading ? 'Processing...' : `Confirm ${(type || 'restock').charAt(0).toUpperCase() + (type || 'restock').slice(1)}`}
+          {loading ? 'Processing...' : (isDamaged ? 'Return & Quarantine' : `Confirm ${(type || 'restock').charAt(0).toUpperCase() + (type || 'restock').slice(1)}`)}
         </button>
+      </div>
       </div>
     </ModalOverlay>
   );

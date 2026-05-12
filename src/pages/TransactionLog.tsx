@@ -121,7 +121,7 @@ export default function TransactionLog() {
     return list;
   }, [transactions, search, catFilter, typeFilter, isAdmin]);
 
-  const typeColors: Record<string, string> = { restock: '#15803d', borrow: '#7c3aed', use: '#d97706', return: '#16a34a' };
+  const typeColors: Record<string, string> = { restock: '#15803d', borrow: '#7c3aed', use: '#d97706', return: '#16a34a', quarantine: '#dc2626', release: '#10b981' };
 
   return (
     <div className="p-4 md:p-8 space-y-4">
@@ -220,8 +220,8 @@ export default function TransactionLog() {
                     {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
                   </span>
                 </td>
-                <td className="px-4 py-4 font-body font-bold" style={{ fontSize: 15, color: (tx.type === 'restock' || tx.type === 'return') ? '#16a34a' : '#dc2626' }}>
-                  {(tx.type === 'restock' || tx.type === 'return') ? '+' : '−'}{Math.abs(tx.qtyChange)}
+                <td className="px-4 py-4 font-body font-bold" style={{ fontSize: 15, color: tx.qtyChange > 0 ? '#16a34a' : '#dc2626' }}>
+                  {tx.qtyChange > 0 ? '+' : '−'}{Math.abs(tx.qtyChange)}
                 </td>
                 <td className="px-4 py-4 font-body font-bold" style={{ fontSize: 15, color: 'var(--heading-color)' }}>{tx.newStock}</td>
                 <td className="px-4 py-4 font-body" style={{ fontSize: 14, color: 'var(--fg-color)', opacity: 0.9 }}>

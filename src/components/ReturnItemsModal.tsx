@@ -10,9 +10,10 @@ interface Props {
 }
 
 export default function ReturnItemsModal({ transaction, onClose }: Props) {
-  const { addTransaction, showToast } = useInventory();
+  const { addTransaction, moveItemToQuarantine, showToast } = useInventory();
   const maxReturn = Math.abs(transaction.qtyChange);
   const [returnQty, setReturnQty] = useState<number>(maxReturn);
+  const [isDamaged, setIsDamaged] = useState(false);
   const [loading, setLoading] = useState(false);
   const [itemStock, setItemStock] = useState<number | null>(null);
 
@@ -37,18 +38,35 @@ export default function ReturnItemsModal({ transaction, onClose }: Props) {
 
     setLoading(true);
     try {
-      await addTransaction({
-        itemId: transaction.itemId,
-        itemName: transaction.itemName,
-        category: transaction.category,
-        type: 'return',
-        qtyChange: returnQty,
-        newStock: itemStock + returnQty,
-        by: transaction.by,
-        notes: `Returned (Partial/Full) from previous borrow`,
-        date: new Date().toISOString()
-      });
-      showToast(`${returnQty} item(s) returned successfully!`, 'success');
+      if (isDamaged) {
+        // Use the specialized quarantine function for returns
+        await moveItemToQuarantine(
+          transaction.itemId,
+          returnQty,
+          notes || 'Returned as damaged',
+          'System (Auto-Quarantine)',
+          true // isReturn = true
+        );
+      } else {
+        // Standard return
+        await addTransaction({
+          itemId: transaction.itemId,
+          itemName: transaction.itemName,
+          category: transaction.category,
+          type: 'return',
+          qtyChange: returnQty,
+          newStock: itemStock + returnQty,
+          by: transaction.by,
+          notes: 'Returned from previous borrow',
+          date: new Date().toISOString()
+        });
+      }
+
+      showToast(isDamaged 
+        ? `${returnQty} item(s) returned and QUARANTINED due to damage.`
+        : `${returnQty} item(s) returned successfully!`, 
+        isDamaged ? 'warning' : 'success'
+      );
       onClose();
     } catch (err: any) {
       showToast(err.message || 'Failed to process return', 'error');
@@ -99,9 +117,34 @@ export default function ReturnItemsModal({ transaction, onClose }: Props) {
               style={{ fontSize: 15, background: 'var(--input-bg)', border: '1px solid var(--input-border)', outline: 'none' }}
               autoFocus
             />
-            <p className="font-body mt-2" style={{ fontSize: 12, color: 'var(--muted-text)' }}>
-              Enter how many items are being returned right now.
-            </p>
+          </div>
+
+          {/* Quarantine Toggle */}
+          <div 
+            className="flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all"
+            style={{ 
+              background: isDamaged ? 'rgba(185, 28, 28, 0.05)' : '#f8fafc', 
+              border: `1px solid ${isDamaged ? '#b91c1c' : '#e2e8f0'}`
+            }}
+            onClick={() => setIsDamaged(!isDamaged)}
+          >
+            <div className="flex flex-col">
+              <span className="font-body font-bold" style={{ fontSize: 13, color: isDamaged ? '#b91c1c' : '#0d1b6e' }}>
+                Mark as Damaged
+              </span>
+              <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
+                Move these items directly to Quarantine
+              </span>
+            </div>
+            <div 
+              className="w-10 h-5 rounded-full relative transition-colors"
+              style={{ background: isDamaged ? '#b91c1c' : '#cbd5e1' }}
+            >
+              <div 
+                className="absolute top-1 w-3 h-3 bg-white rounded-full transition-all"
+                style={{ left: isDamaged ? '24px' : '4px' }}
+              />
+            </div>
           </div>
 
           <div className="pt-2">
@@ -109,9 +152,9 @@ export default function ReturnItemsModal({ transaction, onClose }: Props) {
               type="submit"
               disabled={loading || itemStock === null}
               className="w-full py-3.5 rounded-xl font-body font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: '#15803d', fontSize: 15 }}
+              style={{ background: isDamaged ? '#b91c1c' : '#15803d', fontSize: 15 }}
             >
-              {loading ? 'Processing...' : 'Process Return'}
+              {loading ? 'Processing...' : isDamaged ? 'Return & Quarantine' : 'Process Return'}
             </button>
           </div>
         </form>

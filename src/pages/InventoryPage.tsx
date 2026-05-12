@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useInventory } from '../context/InventoryContext';
 import { useAuth } from '../context/AuthContext';
-import { Category, InventoryItem, getStatus, ItemStatus } from '../types';
+import { Category, InventoryItem, getStatus, ItemStatus, TransactionType } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import AddEditItemModal from '../components/AddEditItemModal';
 import StockMovementModal from '../components/StockMovementModal';
 import BulkRestockModal from '../components/BulkRestockModal';
+import QuarantineModal from '../components/QuarantineModal';
 import { useCategories } from '../hooks/useCategories';
 import { 
   PackageSearch, 
@@ -13,8 +14,8 @@ import {
   Handshake, 
   PackagePlus, 
   PackageMinus, 
-  Upload, 
-  Download, 
+  FileUp, 
+  FileDown, 
   Pencil, 
   Trash2, 
   Home, 
@@ -78,11 +79,12 @@ interface Props {
   category: Category;
   onAddItem?: () => void;
   onImportCSV?: () => void;
-  onStockMovement?: (type: 'restock' | 'use' | 'borrow') => void;
+  onStockMovement?: (type: TransactionType) => void;
   forcedType?: 'borrow' | 'use' | 'return';
+  initialQuarantineFilter?: boolean;
 }
 
-export default function InventoryPage({ category, onAddItem, onImportCSV, onStockMovement, forcedType }: Props) {
+export default function InventoryPage({ category, onAddItem, onImportCSV, onStockMovement, forcedType, initialQuarantineFilter }: Props) {
   const { items, transactions, deleteItem, showToast, searchQuery, setSearchQuery, setCurrentPage: setGlobalPage } = useInventory();
   const { role, user } = useAuth();
   const { categories: dbCategories } = useCategories();
@@ -91,6 +93,9 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [transactionItem, setTransactionItem] = useState<InventoryItem | null>(null);
   const [showBulkRestock, setShowBulkRestock] = useState(false);
+  const [overrideType, setOverrideType] = useState<TransactionType | null>(null);
+  const [quarantineItem, setQuarantineItem] = useState<InventoryItem | null>(null);
+  const showQuarantineOnly = initialQuarantineFilter || false;
 
   const handleDelete = async (item: InventoryItem) => {
     if (!confirm(`Are you sure you want to delete "${item.name}"?\n\nThis action cannot be undone.`)) return;
@@ -112,15 +117,17 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
       .filter(tx => tx.by === user.fullName)
       .forEach(tx => {
         const current = map.get(tx.itemId) || 0;
-        // In this system: Borrow = negative qtyChange, Return = positive qtyChange
-        // We want to know the net amount "out"
-        map.set(tx.itemId, current + tx.qtyChange);
+        // Borrow = negative, Return = positive
+        // Quarantine ONLY counts if it's a return (positive qtyChange)
+        if (tx.type === 'borrow' || tx.type === 'return' || (tx.type === 'quarantine' && tx.qtyChange > 0)) {
+          map.set(tx.itemId, current + tx.qtyChange);
+        }
       });
     return map;
   }, [transactions, user?.fullName, forcedType]);
 
   const filtered = useMemo(() => {
-    let list = items.filter(i => i.category === category);
+    let list = category === 'all' ? items : items.filter(i => i.category === category);
 
     // If in return mode, only show items the user has borrowed (net < 0)
     if (forcedType === 'return') {
@@ -137,26 +144,41 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
       list = list.filter(i => getStatus(i) === statusFilter);
     }
     
+    if (showQuarantineOnly) {
+      list = list.filter(i => (i.quarantineQuantity || 0) > 0);
+    }
+
     // Always sort alphabetically by name
     return list.sort((a, b) => a.name.localeCompare(b.name));
-  }, [items, category, searchQuery, statusFilter, forcedType, borrowedItemsMap]);
+  }, [items, category, searchQuery, statusFilter, forcedType, borrowedItemsMap, showQuarantineOnly]);
 
 
   const paginated = filtered;
 
 
   const exportCSV = () => {
-    const headers = ['#', 'Item Name', 'Unit', 'Qty', 'Location', 'Status', 'Last Updated'];
-    const rows = filtered.map((item, i) => [i + 1, item.name, item.unit, item.quantity, item.location || '', getStatus(item), item.lastUpdated]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    // We export a format that matches our "Smart Sync" import criteria
+    const headers = ['Name', 'Category', 'Unit', 'Quantity', 'Location', 'Low Stock Threshold', 'Notes'];
+    const rows = filtered.map(item => [
+      item.name, 
+      item.category, 
+      item.unit, 
+      item.quantity, 
+      item.location || '', 
+      item.lowStockThreshold,
+      item.notes || ''
+    ]);
+    
+    // Add BOM for Excel compatibility (UTF-8)
+    const csvContent = "\uFEFF" + [headers, ...rows].map(r => r.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${category}-inventory.csv`;
+    a.download = `SSHS-Inventory-${category}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('CSV exported!', 'success');
+    showToast('Data exported!', 'success');
   };
 
   const statusColor = (status: ItemStatus) => {
@@ -175,16 +197,18 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      {/* Borrower Navigation */}
-      {!isAdmin && (
-        <div className="flex flex-wrap items-center gap-3 mb-2">
-          <button
-            onClick={() => setGlobalPage('portal')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-body font-bold transition-all hover:bg-slate-200 dark:hover:bg-white/10"
-            style={{ color: 'var(--heading-color)', background: 'var(--topbar-bg)', border: '1px solid var(--topbar-border)' }}
-          >
-            <ArrowLeft size={18} /> Back to Portal
-          </button>
+      {/* Category Tabs - Hide in "All" mode */}
+      {category !== 'all' && !forcedType && (
+        <div className="flex flex-wrap items-center gap-4 mb-8">
+          {!isAdmin && (
+            <button 
+              onClick={() => setGlobalPage('dashboard')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-sm"
+              style={{ color: 'var(--heading-color)', background: 'var(--topbar-bg)', border: '1px solid var(--topbar-border)' }}
+            >
+              <ArrowLeft size={18} /> Back to Portal
+            </button>
+          )}
           
           <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/50 w-full sm:w-auto overflow-x-auto">
           {categories.map(cat => (
@@ -206,7 +230,8 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
       )}
 
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
+      {!initialQuarantineFilter && (
+        <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 sm:max-w-xs group">
           <PackageSearch size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
           <input
@@ -229,69 +254,81 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
             { value: 'out-of-stock', label: 'Out of Stock' },
           ]}
         />
-        <div className="hidden sm:flex flex-1" />
-        <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
-          {isAdmin && (
-            <button
-              onClick={onAddItem}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl font-body font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-md"
-              style={{ fontSize: 13, background: '#0d1b6e', border: 'none' }}
-            >
-              <Plus size={15} /> <span className="whitespace-nowrap">Add Item</span>
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              onClick={() => setShowBulkRestock(true)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-md"
-              style={{ fontSize: 13, background: '#15803d', border: 'none' }}
-            >
-              <PackagePlus size={14} /> <span className="whitespace-nowrap">Bulk Restock</span>
-            </button>
-          )}
 
-        <div className="flex flex-wrap items-center gap-3">
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => onStockMovement?.('borrow')}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
-                style={{ fontSize: 13, background: '#7c3aed', border: 'none', color: '#ffffff' }}
-              >
-                <Handshake size={14} /> Borrow
-              </button>
-              <button
-                onClick={() => onStockMovement?.('use')}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
-                style={{ fontSize: 13, background: '#d97706', border: 'none', color: '#ffffff' }}
-              >
-                <PackageMinus size={14} /> Use
-              </button>
-            </>
-          )}
 
-          {isAdmin && onImportCSV && (
-            <button
-              onClick={onImportCSV}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
-              style={{ fontSize: 13, background: '#0d1b6e', border: 'none', color: '#ffffff' }}
-              title="Import inventory from CSV"
-            >
-              <Upload size={14} /> <span className="whitespace-nowrap">Import CSV</span>
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              onClick={exportCSV}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
-              style={{ fontSize: 13, background: '#0d1b6e', border: 'none', color: '#ffffff' }}
-            >
-              <Download size={14} /> <span className="whitespace-nowrap">Export CSV</span>
-            </button>
-          )}
+        {category !== 'all' && (
+          <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
+            {isAdmin && (
+              <button
+                onClick={onAddItem}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl font-body font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-md"
+                style={{ fontSize: 13, background: '#0d1b6e', border: 'none' }}
+              >
+                <Plus size={15} /> <span className="whitespace-nowrap">Add Item</span>
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => setShowBulkRestock(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold text-white transition-all hover:scale-105 active:scale-95 shadow-md"
+                style={{ fontSize: 13, background: '#15803d', border: 'none' }}
+              >
+                <PackagePlus size={14} /> <span className="whitespace-nowrap">Bulk Restock</span>
+              </button>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3">
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => onStockMovement?.('borrow')}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
+                    style={{ fontSize: 13, background: '#7c3aed', border: 'none', color: '#ffffff' }}
+                  >
+                    <Handshake size={14} /> Borrow
+                  </button>
+                  <button
+                    onClick={() => onStockMovement?.('use')}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
+                    style={{ fontSize: 13, background: '#d97706', border: 'none', color: '#ffffff' }}
+                  >
+                    <PackageMinus size={14} /> Use
+                  </button>
+                  <button
+                    onClick={() => onStockMovement?.('return')}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
+                    style={{ fontSize: 13, background: '#2563eb', border: 'none', color: '#ffffff' }}
+                  >
+                    <CornerDownLeft size={14} /> Return
+                  </button>
+                </>
+              )}
+
+              {isAdmin && onImportCSV && (
+                <button
+                  onClick={onImportCSV}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
+                  style={{ fontSize: 13, background: '#0d1b6e', border: 'none', color: '#ffffff' }}
+                  title="Import data from CSV/Excel"
+                >
+                  <FileUp size={14} /> <span className="whitespace-nowrap">Import Data</span>
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  onClick={exportCSV}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-body font-bold transition-all hover:scale-105 active:scale-95 shadow-md"
+                  style={{ fontSize: 13, background: '#0d1b6e', border: 'none', color: '#ffffff' }}
+                  title="Export data to CSV"
+                >
+                  <FileDown size={14} /> <span className="whitespace-nowrap">Export Data</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         </div>
-        </div>
-      </div>
+      )}
 
       {/* Table */}
       <div className="rounded-2xl panel-card overflow-hidden">
@@ -299,8 +336,11 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
         <table className="w-full">
           <thead className="sticky-thead">
             <tr style={{ background: 'transparent', borderBottom: '1px solid var(--card-border)' }}>
-              {['#', 'ITEM NAME', 'UNIT', 'QTY', 'LOCATION', 'STATUS', 'UPDATED', 'ACTIONS'].map(h => (
-                <th key={h} className="text-left px-4 py-4 font-body uppercase" style={{ fontSize: 14, color: 'var(--fg-color)', fontWeight: 800, opacity: 1 }}>
+              { (forcedType === 'return' 
+                ? ['#', 'ITEM NAME', 'UNIT', 'YOU OWE', 'QUARANTINE', 'LOCATION', 'STATUS', 'UPDATED', 'ACTIONS']
+                : ['#', 'ITEM NAME', 'UNIT', 'AVAILABLE', 'QUARANTINE', 'LOCATION', 'STATUS', 'UPDATED', 'ACTIONS']
+              ).map(h => (
+                <th key={h} className="text-left px-2 py-3 font-body uppercase" style={{ fontSize: 13, color: 'var(--fg-color)', fontWeight: 800, opacity: 1 }}>
                   {h}
                 </th>
               ))}
@@ -329,19 +369,46 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
               const status = getStatus(item);
               return (
                 <tr key={item.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--card-border)' }}>
-                  <td className="px-4 py-4 font-body" style={{ fontSize: 15, color: 'var(--fg-color)', opacity: 1, fontWeight: 600 }}>
+                  <td className="px-2 py-3 font-body" style={{ fontSize: 15, color: 'var(--fg-color)', opacity: 1, fontWeight: 600 }}>
                     {idx + 1}
                   </td>
-                  <td className="px-4 py-4 font-body font-bold" style={{ fontSize: 18, color: 'var(--heading-color)', fontWeight: 800 }}>
+                  <td className="px-2 py-3 font-body font-bold" style={{ fontSize: 18, color: 'var(--heading-color)', fontWeight: 800 }}>
                     {item.name}
                   </td>
-                  <td className="px-4 py-4 font-body" style={{ fontSize: 15, color: 'var(--fg-color)', opacity: 0.9, fontWeight: 600 }}>
+                  <td className="px-2 py-3 font-body" style={{ fontSize: 15, color: 'var(--fg-color)', opacity: 0.9, fontWeight: 600 }}>
                     {item.unit}
                   </td>
-                  <td className="px-4 py-4 font-body font-bold" style={{ fontSize: 18, color: statusColor(status), letterSpacing: '-0.5px', fontWeight: 900 }}>
-                    {item.quantity}
-                  </td>
-                  <td className="px-4 py-4 font-body" style={{ fontSize: 15, color: 'var(--fg-color)', opacity: 1, fontWeight: 600 }}>
+                  {forcedType === 'return' ? (
+                    <>
+                      <td className="px-2 py-3 font-body font-bold" style={{ fontSize: 18, color: '#b91c1c', letterSpacing: '-0.5px', fontWeight: 900 }}>
+                        {Math.abs(borrowedItemsMap.get(item.id) || 0)}
+                      </td>
+                      <td className="px-2 py-3 font-body font-bold" style={{ fontSize: 18, color: item.quarantineQuantity > 0 ? '#b91c1c' : 'var(--muted-text)', opacity: item.quarantineQuantity > 0 ? 1 : 0.2, fontWeight: 900 }}>
+                        {item.quarantineQuantity || 0}
+                        {item.quarantineQuantity > 0 && (
+                          <div className="text-[9px] font-black tracking-tighter" style={{ color: '#b91c1c', marginTop: -4 }}>DAMAGED</div>
+                        )}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-2 py-3 font-body font-bold" style={{ fontSize: 18, color: statusColor(status), letterSpacing: '-0.5px', fontWeight: 900 }}>
+                        <div className="flex flex-col">
+                          <span>{item.quantity}</span>
+                          {item.lowStockThreshold >= item.quantity && item.quantity > 0 && (
+                            <span style={{ fontSize: 10, color: '#d97706', fontWeight: 700, marginTop: -2 }}>LOW STOCK</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-2 py-3 font-body font-bold" style={{ fontSize: 18, color: item.quarantineQuantity > 0 ? '#b91c1c' : 'var(--muted-text)', opacity: item.quarantineQuantity > 0 ? 1 : 0.2, fontWeight: 900 }}>
+                        {item.quarantineQuantity || 0}
+                        {item.quarantineQuantity > 0 && (
+                          <div className="text-[9px] font-black tracking-tighter" style={{ color: '#b91c1c', marginTop: -4 }}>DAMAGED</div>
+                        )}
+                      </td>
+                    </>
+                  )}
+                  <td className="px-2 py-3 font-body" style={{ fontSize: 15, color: 'var(--fg-color)', opacity: 1, fontWeight: 600 }}>
                     {item.location ? (
                       <span className="px-3 py-1 rounded-full font-body font-bold whitespace-nowrap shadow-sm" style={{ fontSize: 12, background: 'var(--location-bg)', color: 'var(--location-text)', border: '1px solid var(--location-border)', fontWeight: 800 }}>
                         {item.location}
@@ -350,11 +417,11 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
                       <span style={{ color: 'var(--muted-text)', opacity: 0.4 }}>—</span>
                     )}
                   </td>
-                  <td className="px-4 py-4"><StatusBadge status={status} /></td>
-                  <td className="px-4 py-4 font-body text-xs font-semibold" style={{ color: 'var(--muted-text)' }}>
+                  <td className="px-2 py-3"><StatusBadge status={status} /></td>
+                  <td className="px-2 py-3 font-body text-xs font-semibold" style={{ color: 'var(--muted-text)' }}>
                     {new Date(item.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
-                  <td className="px-4 py-4">
+                  <td className="px-2 py-3">
                     <div className="flex gap-2">
                       {[
                         { 
@@ -364,8 +431,9 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
                           onClick: () => setTransactionItem(item), 
                           show: !isAdmin 
                         },
-                        { color: '#15803d', label: 'RESTOCK', tip: 'Add stock', onClick: () => { setTransactionItem(item); }, show: isAdmin },
-                        { color: '#0d1b6e', label: 'EDIT', tip: 'Edit details', onClick: () => setEditingItem(item), show: isAdmin },
+                        { color: '#15803d', label: 'RESTOCK', tip: 'Add stock', onClick: () => { setTransactionItem(item); setOverrideType('restock'); }, show: isAdmin && !initialQuarantineFilter },
+                        { color: '#dc2626', label: 'REPAIR', tip: 'Manage damaged items', onClick: () => setQuarantineItem(item), show: isAdmin && item.quarantineQuantity > 0 },
+                        { color: '#0d1b6e', label: 'EDIT', tip: 'Edit details', onClick: () => setEditingItem(item), show: isAdmin && !initialQuarantineFilter },
                         { color: '#b71c1c', label: 'DELETE', tip: 'Remove item', onClick: () => handleDelete(item), show: isAdmin },
                       ].filter(b => b.show).map((btn, i) => (
                         <div key={i} className="relative group">
@@ -406,11 +474,19 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
       {transactionItem && (
         <StockMovementModal
           item={transactionItem}
-          defaultType={isAdmin ? (forcedType || 'restock') : (forcedType || 'borrow')}
-          onClose={() => setTransactionItem(null)}
+          defaultType={overrideType || (isAdmin ? 'restock' : (forcedType || 'borrow'))}
+          lockType={!!overrideType || !!forcedType}
+          maxReturnQty={forcedType === 'return' ? Math.abs(borrowedItemsMap.get(transactionItem.id) || 0) : undefined}
+          onClose={() => { setTransactionItem(null); setOverrideType(null); }}
         />
       )}
       {showBulkRestock && <BulkRestockModal category={category} onClose={() => setShowBulkRestock(false)} />}
+      {quarantineItem && (
+        <QuarantineModal 
+          item={quarantineItem} 
+          onClose={() => setQuarantineItem(null)} 
+        />
+      )}
     </div>
   );
 }

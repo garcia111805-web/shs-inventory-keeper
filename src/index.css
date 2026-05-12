@@ -360,7 +360,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .table-scroll table {
-  min-width: 720px;
+  min-width: 100%;
 }
 
 .toast-container {

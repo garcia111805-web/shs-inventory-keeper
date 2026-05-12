@@ -1,6 +1,6 @@
 export type Category = string;
 export type ItemStatus = 'in-stock' | 'low-stock' | 'out-of-stock';
-export type TransactionType = 'restock' | 'borrow' | 'use' | 'return';
+export type TransactionType = 'restock' | 'borrow' | 'use' | 'return' | 'quarantine' | 'release';
 export type UserRole = 'admin' | 'staff' | 'borrower';
 
 
@@ -23,6 +23,7 @@ export interface InventoryItem {
   category: Category;
   unit: string;
   quantity: number;
+  quarantineQuantity: number;
   lowStockThreshold: number;
   notes: string;
   lastUpdated: string;
