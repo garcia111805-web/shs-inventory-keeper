@@ -305,7 +305,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       qtyChange: isReturn ? qty : -qty, // Positive for return to clear debt, negative for move from shelf
       newStock: newAvailable,
       by,
-      notes: isReturn ? `Damaged Return: ${notes}` : `Moved to Quarantine: ${notes}`,
+      notes: isReturn ? `Damaged Return: ${notes}` : `Marked as Damaged: ${notes}`,
       date: new Date().toISOString(),
     });
   }, [items, addTransaction]);
@@ -334,7 +334,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       qtyChange: qty,
       newStock: newAvailable,
       by,
-      notes: `Released from Quarantine: ${notes}`,
+      notes: `Repaired/Released from Damaged: ${notes}`,
       date: new Date().toISOString(),
     });
   }, [items, addTransaction]);
@@ -361,7 +361,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       qtyChange: -qty,
       newStock: item.quantity,
       by,
-      notes: `Disposed from Quarantine: ${notes}`,
+      notes: `Disposed Damaged Item: ${notes}`,
       date: new Date().toISOString(),
     });
   }, [items, addTransaction]);

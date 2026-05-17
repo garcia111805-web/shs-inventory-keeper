@@ -63,7 +63,7 @@ export default function ReturnItemsModal({ transaction, onClose }: Props) {
       }
 
       showToast(isDamaged 
-        ? `${returnQty} item(s) returned and QUARANTINED due to damage.`
+        ? `${returnQty} item(s) returned and MARKED DAMAGED.`
         : `${returnQty} item(s) returned successfully!`, 
         isDamaged ? 'warning' : 'success'
       );
@@ -133,7 +133,7 @@ export default function ReturnItemsModal({ transaction, onClose }: Props) {
                 Mark as Damaged
               </span>
               <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                Move these items directly to Quarantine
+                Move these items directly to Damaged Items
               </span>
             </div>
             <div 
@@ -154,7 +154,7 @@ export default function ReturnItemsModal({ transaction, onClose }: Props) {
               className="w-full py-3.5 rounded-xl font-body font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               style={{ background: isDamaged ? '#b91c1c' : '#15803d', fontSize: 15 }}
             >
-              {loading ? 'Processing...' : isDamaged ? 'Return & Quarantine' : 'Process Return'}
+              {loading ? 'Processing...' : isDamaged ? 'Return & Mark Damaged' : 'Process Return'}
             </button>
           </div>
         </form>

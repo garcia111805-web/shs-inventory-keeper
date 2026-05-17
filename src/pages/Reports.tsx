@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useInventory } from '../context/InventoryContext';
-import { getStatus, getCategoryLabel } from '../types';
+import { getStatus, getCategoryLabel, InventoryItem } from '../types';
 import { FileText, FileSpreadsheet, ClipboardList, Download, CheckCircle, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -41,7 +41,18 @@ const REPORT_CARDS = [
 export default function Reports() {
   const { items, transactions } = useInventory();
   const [generatingId, setGeneratingId] = useState<string | null>(null);
-  const [history, setHistory] = useState<ReportRecord[]>([]);
+  const [history, setHistory] = useState<ReportRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('sshs_report_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sshs_report_history', JSON.stringify(history));
+  }, [history]);
 
   const addToHistory = (name: string, type: 'PDF' | 'CSV') => {
     setHistory(prev => [
@@ -58,10 +69,17 @@ export default function Reports() {
     const m = 20;
     let y = m;
 
+    const sumQty = (arr: InventoryItem[]) => arr.reduce((acc, i) => acc + i.quantity, 0);
+    const sumDamaged = (arr: InventoryItem[]) => arr.reduce((acc, i) => acc + (i.quarantineQuantity || 0), 0);
+
     const totalItems = items.length;
-    const inStock = items.filter(i => getStatus(i) === 'in-stock').length;
-    const lowStock = items.filter(i => getStatus(i) === 'low-stock').length;
-    const outOfStock = items.filter(i => getStatus(i) === 'out-of-stock').length;
+    const inStockItems = items.filter(i => getStatus(i) === 'in-stock');
+    const lowStockItems = items.filter(i => getStatus(i) === 'low-stock');
+    const outOfStockItems = items.filter(i => getStatus(i) === 'out-of-stock');
+    
+    const inStock = inStockItems.length;
+    const lowStock = lowStockItems.length;
+    const outOfStock = outOfStockItems.length;
 
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -86,17 +104,17 @@ export default function Reports() {
 
     autoTable(doc, {
       startY: y, margin: { left: m, right: m },
-      head: [['Metric', 'Count', 'Percentage']],
+      head: [['Metric', 'Item Types', 'Total Qty', 'Damaged Qty', '% of Types']],
       body: [
-        ['Total Inventory Items', String(totalItems), '100%'],
-        ['In Stock', String(inStock), totalItems > 0 ? `${((inStock / totalItems) * 100).toFixed(1)}%` : '0%'],
-        ['Low Stock', String(lowStock), totalItems > 0 ? `${((lowStock / totalItems) * 100).toFixed(1)}%` : '0%'],
-        ['Out of Stock', String(outOfStock), totalItems > 0 ? `${((outOfStock / totalItems) * 100).toFixed(1)}%` : '0%'],
+        ['Total Inventory', String(totalItems), String(sumQty(items)), String(sumDamaged(items)), '100%'],
+        ['In Stock', String(inStock), String(sumQty(inStockItems)), String(sumDamaged(inStockItems)), totalItems > 0 ? `${((inStock / totalItems) * 100).toFixed(1)}%` : '0%'],
+        ['Low Stock', String(lowStock), String(sumQty(lowStockItems)), String(sumDamaged(lowStockItems)), totalItems > 0 ? `${((lowStock / totalItems) * 100).toFixed(1)}%` : '0%'],
+        ['Out of Stock', String(outOfStock), String(sumQty(outOfStockItems)), String(sumDamaged(outOfStockItems)), totalItems > 0 ? `${((outOfStock / totalItems) * 100).toFixed(1)}%` : '0%'],
       ],
       headStyles: { fillColor: [13, 27, 110], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
       bodyStyles: { fontSize: 10, textColor: [40, 40, 40] },
       alternateRowStyles: { fillColor: [245, 245, 250] },
-      columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 30, halign: 'center' }, 2: { cellWidth: 40, halign: 'center' } },
+      columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 25, halign: 'center' }, 2: { cellWidth: 25, halign: 'center' }, 3: { cellWidth: 30, halign: 'center' }, 4: { cellWidth: 30, halign: 'center' } },
       theme: 'grid',
     });
     y = (doc as any).lastAutoTable.finalY + 12;
@@ -107,17 +125,24 @@ export default function Reports() {
 
     const cats = (['cleaning', 'office', 'clinic'] as const).map(c => {
       const ci = items.filter(i => i.category === c);
-      return [getCategoryLabel(c), String(ci.length), String(ci.filter(i => getStatus(i) === 'in-stock').length), String(ci.filter(i => getStatus(i) === 'low-stock').length), String(ci.filter(i => getStatus(i) === 'out-of-stock').length)];
+      return [
+        getCategoryLabel(c), 
+        String(ci.length), 
+        String(sumQty(ci)),
+        String(sumDamaged(ci)),
+        String(ci.filter(i => getStatus(i) === 'in-stock').length), 
+        String(ci.filter(i => getStatus(i) === 'out-of-stock').length)
+      ];
     });
 
     autoTable(doc, {
       startY: y, margin: { left: m, right: m },
-      head: [['Category', 'Total', 'In Stock', 'Low Stock', 'Out of Stock']],
+      head: [['Category', 'Types', 'Total Qty', 'Damaged Qty', 'Types In-Stock', 'Types Out-of-Stock']],
       body: cats,
-      headStyles: { fillColor: [13, 27, 110], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
-      bodyStyles: { fontSize: 10, textColor: [40, 40, 40] },
+      headStyles: { fillColor: [13, 27, 110], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 9, textColor: [40, 40, 40] },
       alternateRowStyles: { fillColor: [245, 245, 250] },
-      columnStyles: { 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' } },
+      columnStyles: { 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' }, 5: { halign: 'center' } },
       theme: 'grid',
     });
     y = (doc as any).lastAutoTable.finalY + 12;
@@ -427,7 +452,7 @@ export default function Reports() {
             {history.length === 0 ? (
               <tr>
                 <td colSpan={4} className="text-center py-6 font-body" style={{ color: 'var(--muted-text)', fontSize: 13 }}>
-                  No reports generated this session — select a report above to get started
+                  No reports generated yet — select a report above to get started
                 </td>
               </tr>
             ) : (

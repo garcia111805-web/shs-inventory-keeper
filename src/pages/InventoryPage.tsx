@@ -337,8 +337,8 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
           <thead className="sticky-thead">
             <tr style={{ background: 'transparent', borderBottom: '1px solid var(--card-border)' }}>
               { (forcedType === 'return' 
-                ? ['#', 'ITEM NAME', 'UNIT', 'YOU OWE', 'QUARANTINE', 'LOCATION', 'STATUS', 'UPDATED', 'ACTIONS']
-                : ['#', 'ITEM NAME', 'UNIT', 'AVAILABLE', 'QUARANTINE', 'LOCATION', 'STATUS', 'UPDATED', 'ACTIONS']
+                ? ['#', 'ITEM NAME', 'UNIT', 'YOU OWE', 'DAMAGED', 'LOCATION', 'STATUS', 'UPDATED', 'ACTIONS']
+                : ['#', 'ITEM NAME', 'UNIT', 'AVAILABLE', 'DAMAGED', 'LOCATION', 'STATUS', 'UPDATED', 'ACTIONS']
               ).map(h => (
                 <th key={h} className="text-left px-2 py-3 font-body uppercase" style={{ fontSize: 13, color: 'var(--fg-color)', fontWeight: 800, opacity: 1 }}>
                   {h}

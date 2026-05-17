@@ -34,7 +34,7 @@ export default function QuarantineModal({ item, onClose }: Props) {
   };
 
   const handleDispose = async () => {
-    if (!confirm(`Are you sure you want to DISPOSE of ${qty} quarantined items?\n\nThis will permanently remove them from the system as broken/unusable.`)) return;
+    if (!confirm(`Are you sure you want to DISPOSE of ${qty} damaged items?\n\nThis will permanently remove them from the system as broken/unusable.`)) return;
     
     setLoading(true);
     try {
@@ -57,7 +57,7 @@ export default function QuarantineModal({ item, onClose }: Props) {
               <ShieldAlert size={24} />
             </div>
             <div>
-              <h2 className="font-heading font-black tracking-tight" style={{ fontSize: 22, color: '#b91c1c' }}>Manage Quarantine</h2>
+              <h2 className="font-heading font-black tracking-tight" style={{ fontSize: 22, color: '#b91c1c' }}>Manage Damaged Items</h2>
               <p className="font-body font-bold" style={{ fontSize: 14, color: '#991b1b', opacity: 0.8 }}>{item.name}</p>
             </div>
           </div>
@@ -70,7 +70,7 @@ export default function QuarantineModal({ item, onClose }: Props) {
           <div className="p-5 rounded-2xl border-2 border-dashed border-red-200" style={{ background: '#fffafa' }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-body font-bold text-red-900" style={{ fontSize: 13 }}>Current Quarantined Stock</p>
+                <p className="font-body font-bold text-red-900" style={{ fontSize: 13 }}>Current Damaged Stock</p>
                 <p className="font-heading font-black text-4xl mt-1" style={{ color: '#b91c1c' }}>{item.quarantineQuantity} <span className="text-xl font-bold opacity-60">{item.unit}</span></p>
               </div>
               <div className="text-right">

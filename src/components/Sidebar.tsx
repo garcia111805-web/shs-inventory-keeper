@@ -66,7 +66,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
       label: 'RECORDS',
       items: [
         { page: 'transactions' as PageName, label: 'Transaction Log' },
-        { page: 'quarantine' as PageName, label: 'Quarantine List' },
+        { page: 'quarantine' as PageName, label: 'Damaged Items' },
         { page: 'reports' as PageName, label: 'Reports' },
       ],
     },

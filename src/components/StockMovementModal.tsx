@@ -124,7 +124,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, l
           by.trim(),
           true // isReturn = true
         );
-        showToast(`Returned ${qtyNum} ${selectedItem.unit} to Quarantine`, 'success');
+        showToast(`Returned ${qtyNum} ${selectedItem.unit} and marked as Damaged`, 'success');
       } else {
         // Regular transaction
         await addTransaction({
@@ -430,7 +430,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, l
                 Mark as Damaged
               </p>
               <p className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                Move item directly to quarantine
+                Move item directly to damaged list
               </p>
             </div>
           </div>
@@ -459,7 +459,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, l
             <span>{isDamaged ? 'Stock Status:' : 'Resulting Stock:'}</span>
             <span className="font-bold" style={{ fontSize: 15 }}>
               {isDamaged 
-                ? `+${qtyNum} to Quarantine` 
+                ? `+${qtyNum} Damaged` 
                 : `${newStock} ${selectedItem.unit}`}
             </span>
           </div>
@@ -489,7 +489,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, l
             border: 'none',
           }}
         >
-          {loading ? 'Processing...' : (isDamaged ? 'Return & Quarantine' : `Confirm ${(type || 'restock').charAt(0).toUpperCase() + (type || 'restock').slice(1)}`)}
+          {loading ? 'Processing...' : (isDamaged ? 'Return & Mark Damaged' : `Confirm ${(type || 'restock').charAt(0).toUpperCase() + (type || 'restock').slice(1)}`)}
         </button>
       </div>
       </div>
