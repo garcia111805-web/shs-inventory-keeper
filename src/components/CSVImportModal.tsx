@@ -100,7 +100,7 @@ export default function CSVImportModal({ onClose }: Props) {
 
   // Scan all rows to find the header row (the one with a 'Name' column)
   const processAllRows = (allRows: string[][]) => {
-    // Check for Sucat SHS specific format
+    // Check for Sucat Elementary School specific format
     const isSucatFormat = allRows[0]?.[0]?.toUpperCase().includes('SUCAT SENIOR HIGH SCHOOL');
     
     if (isSucatFormat) {
@@ -142,7 +142,7 @@ export default function CSVImportModal({ onClose }: Props) {
       }
 
       if (parsedItems.length === 0) {
-        setError('Detected Sucat SHS format but found no items starting from Row 7.');
+        setError('Detected Sucat Elementary School format but found no items starting from Row 7.');
         return;
       }
 

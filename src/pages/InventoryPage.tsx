@@ -175,7 +175,7 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `SSHS-Inventory-${category}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `SES-Inventory-${category}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('Data exported!', 'success');

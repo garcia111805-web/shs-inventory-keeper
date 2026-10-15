@@ -204,9 +204,9 @@ export default function Reports() {
     // Footer
     doc.setDrawColor(13, 27, 110); doc.setLineWidth(0.3); doc.line(m, ph - 12, pw - m, ph - 12);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(150);
-    doc.text('SSHS Property & Inventory Management System — Confidential', pw / 2, ph - 8, { align: 'center' });
+    doc.text('Sucat Elementary School Property & Inventory Management System — Confidential', pw / 2, ph - 8, { align: 'center' });
 
-    doc.save(`SSHS_Audit_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`SES_Audit_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
     addToHistory('Monthly Inventory Audit', 'PDF');
   };
 
@@ -233,7 +233,7 @@ export default function Reports() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `SSHS_Transaction_Ledger_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `SES_Transaction_Ledger_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     addToHistory('Full Transaction Ledger', 'CSV');
@@ -337,9 +337,9 @@ export default function Reports() {
     // Footer
     doc.setDrawColor(13, 27, 110); doc.setLineWidth(0.3); doc.line(m, ph - 12, pw - m, ph - 12);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(150);
-    doc.text('SSHS Property & Inventory Management System — Confidential', pw / 2, ph - 8, { align: 'center' });
+    doc.text('Sucat Elementary School Property & Inventory Management System — Confidential', pw / 2, ph - 8, { align: 'center' });
 
-    doc.save(`SSHS_Accountability_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`SES_Accountability_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
     addToHistory('Asset Accountability Report', 'PDF');
   };
 
@@ -367,7 +367,7 @@ export default function Reports() {
           Document Generation Center
         </h2>
         <p className="font-body mt-1" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
-          Generate official reports and export records for the SSHS Property Office
+          Generate official reports and export records for the Sucat Elementary School Property Office
         </p>
       </div>
 
