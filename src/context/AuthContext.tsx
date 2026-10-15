@@ -21,12 +21,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (u: AppUser) => {
     setUser(u);
-    localStorage.setItem('sshs-user', JSON.stringify(u));
+    localStorage.setItem('ses-user', JSON.stringify(u));
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('sshs-user');
+    localStorage.removeItem('ses-user');
   };
 
   return (

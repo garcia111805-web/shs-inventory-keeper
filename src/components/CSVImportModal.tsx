@@ -101,7 +101,7 @@ export default function CSVImportModal({ onClose }: Props) {
   // Scan all rows to find the header row (the one with a 'Name' column)
   const processAllRows = (allRows: string[][]) => {
     // Check for Sucat Elementary School specific format
-    const isSucatFormat = allRows[0]?.[0]?.toUpperCase().includes('SUCAT SENIOR HIGH SCHOOL');
+    const isSucatFormat = allRows[0]?.[0]?.toUpperCase().includes('SUCAT ELEMENTARY SCHOOL');
     
     if (isSucatFormat) {
       const existingNames = new Set(items.map(i => formatItemName(i.name).toLowerCase()));
