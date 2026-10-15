@@ -1,3 +1,3 @@
-# SSHS Inventory Management System
+# Sucat Elementary School Inventory Management System
 
-Inventory Management System for Sucat Senior High School, City of Muntinlupa.
+Inventory Management System for Sucat Elementary School, City of Muntinlupa.
