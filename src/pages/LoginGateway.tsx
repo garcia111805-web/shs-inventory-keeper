@@ -100,7 +100,7 @@ export default function LoginGateway() {
         <div className="text-center mb-10">
           <div className="relative inline-block">
             <img
-              src="/images/sshs-logo.jpg"
+              src="/images/ses-logo.png"
               alt="Sucat Elementary School Logo"
               className="rounded-full mx-auto"
               style={{

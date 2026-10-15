@@ -43,7 +43,7 @@ export default function Reports() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [history, setHistory] = useState<ReportRecord[]>(() => {
     try {
-      const saved = localStorage.getItem('sshs_report_history');
+      const saved = localStorage.getItem('ses_report_history');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -51,7 +51,7 @@ export default function Reports() {
   });
 
   useEffect(() => {
-    localStorage.setItem('sshs_report_history', JSON.stringify(history));
+    localStorage.setItem('ses_report_history', JSON.stringify(history));
   }, [history]);
 
   const addToHistory = (name: string, type: 'PDF' | 'CSV') => {
@@ -89,7 +89,7 @@ export default function Reports() {
     doc.setDrawColor(13, 27, 110); doc.setLineWidth(1.5);
     doc.line(m, y, pw - m, y); y += 8;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(13, 27, 110);
-    doc.text('SUCAT SENIOR HIGH SCHOOL', pw / 2, y, { align: 'center' }); y += 7;
+    doc.text('SUCAT ELEMENTARY SCHOOL', pw / 2, y, { align: 'center' }); y += 7;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100);
     doc.text('City of Muntinlupa', pw / 2, y, { align: 'center' }); y += 10;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(13, 27, 110);
@@ -257,7 +257,7 @@ export default function Reports() {
     doc.setDrawColor(13, 27, 110); doc.setLineWidth(1.5);
     doc.line(m, y, pw - m, y); y += 8;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(13, 27, 110);
-    doc.text('SUCAT SENIOR HIGH SCHOOL', pw / 2, y, { align: 'center' }); y += 7;
+    doc.text('SUCAT ELEMENTARY SCHOOL', pw / 2, y, { align: 'center' }); y += 7;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100);
     doc.text('City of Muntinlupa', pw / 2, y, { align: 'center' }); y += 10;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(13, 27, 110);
