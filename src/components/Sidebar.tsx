@@ -106,7 +106,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
           <img
-            src="/images/349022250_260267146537592_5468556789585259072_n-removebg-preview.png"
+            src="/images/sshs-logo.jpg"
             alt="Sucat Elementary School Logo"
             className="relative rounded-full bg-white p-0.5"
             style={{
