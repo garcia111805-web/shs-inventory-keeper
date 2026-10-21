@@ -88,8 +88,8 @@ function mapTransaction(row: any): Transaction {
 export function InventoryProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<InventoryItem[]>(() => {
     // If the key exists in localStorage (even as []), respect it — don't fall back to seed data.
-    // This prevents the 94 demo items from reappearing after a wipe.
-    const raw = localStorage.getItem('sucat_items') ?? localStorage.getItem('inventory_items');
+    // This prevents the demo items from reappearing after a wipe.
+    const raw = localStorage.getItem('sucat_items');
     if (raw !== null) {
       try {
         const parsed = JSON.parse(raw);
@@ -129,7 +129,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   const refreshData = useCallback(async () => {
     if (!isSupabaseConfigured) {
-      const raw = localStorage.getItem('sucat_items') ?? localStorage.getItem('inventory_items');
+      const raw = localStorage.getItem('sucat_items');
       if (raw !== null) {
         try {
           const parsed = JSON.parse(raw);
@@ -522,11 +522,14 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   // Wipe all items and transactions – used before a fresh import
   const wipeAllItems = useCallback(async () => {
+    // Always clear localStorage keys completely
+    setItems([]);
+    setTransactions([]);
+    localStorage.setItem('sucat_items', JSON.stringify([]));
+    localStorage.setItem('sucat_transactions', JSON.stringify([]));
+    localStorage.removeItem('inventory_items');
+
     if (!isSupabaseConfigured) {
-      setItems([]);
-      setTransactions([]);
-      localStorage.setItem('sucat_items', JSON.stringify([]));
-      localStorage.setItem('sucat_transactions', JSON.stringify([]));
       return;
     }
     // Delete transactions FIRST (they reference items via FK — reversing order causes constraint errors)
