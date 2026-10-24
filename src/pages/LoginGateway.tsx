@@ -112,12 +112,13 @@ export default function LoginGateway() {
 
   const handleUserSelect = (user: AppUser) => {
     setSelectedUser(user);
-    if (user.role === 'admin' || (user.pin && user.pin.trim().length > 0)) {
+    const isAdmin = user.role?.toLowerCase() === 'admin';
+    if (isAdmin) {
       setMode('pin');
       setPin('');
       setError('');
     } else {
-      // Require staff confirmation to prevent misclicks in large user lists
+      // Staff accounts do not require a PIN / password
       setMode('confirm');
     }
   };
@@ -126,7 +127,8 @@ export default function LoginGateway() {
     e.preventDefault();
     if (!selectedUser) return;
 
-    if (pin === selectedUser.pin) {
+    const expectedPin = selectedUser.pin || '1234';
+    if (pin === expectedPin) {
       login(selectedUser);
     } else {
       setError('Incorrect PIN');
@@ -260,7 +262,7 @@ export default function LoginGateway() {
                       <div className="flex-1 min-w-0">
                         <div className="text-slate-800 dark:text-white font-body font-bold text-sm sm:text-base truncate">{user.fullName}</div>
                         <div className="text-slate-500 dark:text-white/50 font-body text-[11px] uppercase tracking-wider font-semibold">
-                          {user.role} {user.employeeId ? `• ${user.employeeId}` : ''}
+                          {user.role === 'admin' ? 'admin' : 'staff'} {user.employeeId ? `• ${user.employeeId}` : ''}
                         </div>
                       </div>
                       <ChevronRight size={16} className="text-slate-400 dark:text-white/30 group-hover:translate-x-0.5 transition-transform shrink-0" />

@@ -413,7 +413,7 @@ function UserManagementSection() {
     setIsAdding(true);
     try {
       const finalId = employeeId || `USER-${Date.now()}`;
-      const finalPin = role === 'admin' ? pin : '0000';
+      const finalPin = role === 'admin' ? pin : '';
 
       if (role === 'admin' && (!pin || pin.length !== 4)) {
         showToast('Admins must have a 4-digit PIN', 'error');
