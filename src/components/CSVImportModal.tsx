@@ -7,7 +7,7 @@ import { Category, getCategoryColor, getCategoryLabel } from '../types';
 import ModalOverlay from './ModalOverlay';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { formatItemName } from '../lib/utils';
+import { formatItemName, guessConsumable } from '../lib/utils';
 import { initialItems } from '../data/initialItems';
 
 interface Props {
@@ -256,7 +256,7 @@ export default function CSVImportModal({ onClose }: Props) {
             lowStockThreshold: 3,
             notes: '',
             location: undefined,
-            isConsumable: true,
+            isConsumable: guessConsumable(formattedName),
             isDuplicate
           });
           existingNames.add(nameLower);
@@ -318,7 +318,8 @@ export default function CSVImportModal({ onClose }: Props) {
       existingNames.add(nameLower);
 
       const consRaw = consIdx >= 0 ? row[consIdx]?.toLowerCase() || '' : '';
-      const isConsumable = consRaw.includes('asset') || consRaw.includes('non') || consRaw === 'false' || consRaw === 'no' ? false : true;
+      const explicitNonConsumable = consRaw.includes('asset') || consRaw.includes('non') || consRaw === 'false' || consRaw === 'no';
+      const isConsumable = consIdx >= 0 ? !explicitNonConsumable : guessConsumable(formattedName);
 
       const rawCat = catIdx >= 0 ? row[catIdx] : undefined;
       const detectedCat = resolveCategory(rawCat, formattedName, sheetHint, items, availableCategoryNames, importSettings.fallbackCategory);

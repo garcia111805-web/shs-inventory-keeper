@@ -401,21 +401,7 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
                     {idx + 1}
                   </td>
                   <td className="px-3 py-3.5 font-body font-bold text-[15px] tracking-tight" style={{ color: 'var(--fg-color)' }}>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span>{item.name}</span>
-                      {isAdmin && (
-                        <span 
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1 ${
-                            item.isConsumable 
-                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' 
-                              : 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
-                          }`}
-                          title={item.isConsumable ? 'Consumable Supply (Used & Deducted)' : 'Durable Asset / Tool (Borrow & Return)'}
-                        >
-                          {item.isConsumable ? 'Consumable' : 'Asset'}
-                        </span>
-                      )}
-                    </div>
+                    <span>{item.name}</span>
                   </td>
                   <td className="px-3 py-3.5 font-body font-bold text-xs uppercase" style={{ color: 'var(--fg-color)', opacity: 0.8 }}>
                     {item.unit}

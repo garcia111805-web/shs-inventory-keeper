@@ -5,7 +5,7 @@ import { useLocations } from '../hooks/useLocations';
 import { useCategories } from '../hooks/useCategories';
 import { useUnits } from '../hooks/useUnits';
 import ModalOverlay from './ModalOverlay';
-import { formatItemName } from '../lib/utils';
+import { formatItemName, guessConsumable } from '../lib/utils';
 import { PackagePlus, ShoppingBag, CheckCircle2 } from 'lucide-react';
 
 interface Props {
@@ -37,6 +37,8 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
     const formattedUnit = unit.trim().toUpperCase();
     const formattedLocation = location.trim().toUpperCase();
     const qtyVal = parseInt(quantity) || 0;
+    const guessedConsumable = guessConsumable(formattedName);
+    const finalIsConsumable = isEdit ? isConsumable : (item ? isConsumable : guessedConsumable);
     
     if (qtyVal < 0) {
       showToast('Quantity cannot be negative', 'warning');
@@ -54,7 +56,7 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
           lowStockThreshold: parseInt(threshold) || 3,
           notes,
           location: formattedLocation || undefined,
-          isConsumable,
+          isConsumable: finalIsConsumable,
         });
         showToast(`${formattedName} updated`, 'success');
       } else {
@@ -66,7 +68,7 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
           lowStockThreshold: parseInt(threshold) || 3,
           notes,
           location: formattedLocation || undefined,
-          isConsumable,
+          isConsumable: finalIsConsumable,
         });
         if (result.merged) {
           showToast(`Merged with existing ${formattedName}`, 'success');
