@@ -106,7 +106,7 @@ export default function Index() {
               onAddItem={() => setShowAddItem(true)} 
               onImportCSV={() => setShowCSVImport(true)} 
               onStockMovement={handleQuickAction} 
-              forcedType={staffMode} 
+              forcedType={isAdmin ? undefined : staffMode} 
             />
           );
         }
