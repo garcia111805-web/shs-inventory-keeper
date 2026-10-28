@@ -135,6 +135,12 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
         const netBalance = borrowedItemsMap.get(item.id) || 0;
         return netBalance < 0; // Negative balance means they owe items
       });
+    } else if (forcedType === 'borrow') {
+      // Only non-consumables (tools, assets, durable equipment) can be borrowed
+      list = list.filter(item => !item.isConsumable);
+    } else if (forcedType === 'use') {
+      // Only consumables (supplies, paper, ink, soap) can be used
+      list = list.filter(item => item.isConsumable);
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -187,13 +193,18 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
     return '#b91c1c';
   };
 
-  const categories = dbCategories.length > 0 
+  const baseCategories = dbCategories.length > 0 
     ? dbCategories.map(c => ({ id: c.name as Category, label: c.name.charAt(0).toUpperCase() + c.name.slice(1) }))
     : [
         { id: 'cleaning' as Category, label: 'Cleaning Materials' },
         { id: 'office' as Category, label: 'Office Supplies' },
         { id: 'clinic' as Category, label: 'Clinic Supplies' },
       ];
+
+  const categoryTabs = [
+    { id: 'all' as Category, label: 'All Items' },
+    ...baseCategories
+  ];
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -208,17 +219,17 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
           </button>
           {forcedType && (
             <span className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full bg-[#e8b400]/15 text-[#e8b400] border border-[#e8b400]/30">
-              Mode: {forcedType === 'borrow' ? 'Borrowing' : forcedType === 'use' ? 'Using Consumable' : 'Returning Item'}
+              Mode: {forcedType === 'borrow' ? 'Borrowing (Non-Consumables)' : forcedType === 'use' ? 'Using Consumables' : 'Returning Item'}
             </span>
           )}
         </div>
       )}
 
-      {/* Category Tabs - Hide in "All" mode */}
-      {category !== 'all' && (
+      {/* Category Tabs */}
+      {!initialQuarantineFilter && (
         <div className="flex flex-wrap items-center gap-4 mb-6">
           <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/50 w-full sm:w-auto overflow-x-auto">
-          {categories.map(cat => (
+          {categoryTabs.map(cat => (
             <button
               key={cat.id}
               onClick={() => setGlobalPage(cat.id)}
@@ -243,7 +254,7 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
           <PackageSearch size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
           <input
             type="text"
-            placeholder="Search within this category..."
+            placeholder={category === 'all' ? "Search all items..." : "Search within this category..."}
             className="w-full rounded-2xl pl-10 pr-4 py-3 font-body bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
             style={{ fontSize: 14 }}
             value={searchQuery}
@@ -356,18 +367,28 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-24">
+                <td colSpan={9} className="text-center py-24">
                   <div className="flex flex-col items-center justify-center gap-3 text-center">
                     <PackageSearch size={64} style={{ color: forcedType === 'return' ? '#15803d' : 'var(--muted-text)', opacity: forcedType === 'return' ? 0.6 : 0.3 }} />
                     <h3 className="font-heading font-bold" style={{ fontSize: 26, color: forcedType === 'return' ? '#15803d' : 'var(--fg-color)' }}>
-                      {forcedType === 'return' ? 'No Items to Return' : 'No Items Found'}
+                      {forcedType === 'return' 
+                        ? 'No Items to Return' 
+                        : forcedType === 'borrow'
+                          ? 'No Borrowable Items Found'
+                          : forcedType === 'use'
+                            ? 'No Consumable Items Found'
+                            : 'No Items Found'}
                     </h3>
                     <p className="font-body text-lg" style={{ color: 'var(--muted-text)' }}>
                       {forcedType === 'return' 
                         ? 'Your currently borrowed items will appear here when you need to return them.' 
-                        : searchQuery 
-                          ? `No results matching "${searchQuery}"` 
-                          : 'Start adding items to build your inventory.'}
+                        : forcedType === 'borrow'
+                          ? 'No non-consumable tools or assets match your current category/filter.'
+                          : forcedType === 'use'
+                            ? 'No consumable items match your current category/filter.'
+                            : searchQuery 
+                              ? `No results matching "${searchQuery}"` 
+                              : 'Start adding items to build your inventory.'}
                     </p>
                   </div>
                 </td>
@@ -380,7 +401,21 @@ export default function InventoryPage({ category, onAddItem, onImportCSV, onStoc
                     {idx + 1}
                   </td>
                   <td className="px-3 py-3.5 font-body font-bold text-[15px] tracking-tight" style={{ color: 'var(--fg-color)' }}>
-                    {item.name}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span>{item.name}</span>
+                      {isAdmin && (
+                        <span 
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1 ${
+                            item.isConsumable 
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' 
+                              : 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                          }`}
+                          title={item.isConsumable ? 'Consumable Supply (Used & Deducted)' : 'Durable Asset / Tool (Borrow & Return)'}
+                        >
+                          {item.isConsumable ? 'Consumable' : 'Asset'}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-3.5 font-body font-bold text-xs uppercase" style={{ color: 'var(--fg-color)', opacity: 0.8 }}>
                     {item.unit}

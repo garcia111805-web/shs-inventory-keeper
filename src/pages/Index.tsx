@@ -88,14 +88,15 @@ export default function Index() {
             </header>
             <SelfServicePortal onAction={(type) => {
               setStaffMode(type);
-              setCurrentPage('cleaning');
+              setCurrentPage('all');
             }} />
           </div>
         </div>
       );
       default: {
-        // Check if the current page is a dynamic category
-        const isCategory = categories.some(cat => cat.name === currentPage) || 
+        // Check if the current page is 'all' or a dynamic category
+        const isCategory = currentPage === 'all' ||
+                          categories.some(cat => cat.name === currentPage) || 
                           ['cleaning', 'office', 'clinic'].includes(currentPage);
         
         if (isCategory) {
@@ -112,7 +113,7 @@ export default function Index() {
         
         return isAdmin ? <Dashboard /> : <SelfServicePortal onAction={(type) => {
           setStaffMode(type);
-          setCurrentPage('cleaning');
+          setCurrentPage('all');
         }} />;
       }
     }
@@ -171,7 +172,7 @@ export default function Index() {
           {currentPage === 'portal' ? (
             <SelfServicePortal onAction={(type) => {
               setStaffMode(type);
-              setCurrentPage('cleaning');
+              setCurrentPage('all');
             }} />
           ) : (
             <div className="animate-fade-in h-full flex flex-col">

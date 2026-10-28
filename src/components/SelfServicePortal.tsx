@@ -22,17 +22,17 @@ export default function SelfServicePortal({ onAction }: PortalProps) {
 
   const handleGoToBorrow = () => {
     onAction?.('borrow');
-    setCurrentPage('cleaning' as PageName);
+    setCurrentPage('all' as PageName);
   };
 
   const handleGoToMyReturns = () => {
     onAction?.('return');
-    setCurrentPage('cleaning' as PageName);
+    setCurrentPage('all' as PageName);
   };
 
   const handleGoToUse = () => {
     onAction?.('use');
-    setCurrentPage('cleaning' as PageName);
+    setCurrentPage('all' as PageName);
   };
 
   return (

@@ -5,8 +5,8 @@ const today = new Date().toISOString().split('T')[0];
 let idCounter = 1;
 function makeId() { return `item-${idCounter++}`; }
 
-function item(name: string, category: 'cleaning' | 'office' | 'clinic', unit: string, quantity: number, threshold = 3): InventoryItem {
-  return { id: makeId(), name, category, unit, quantity, lowStockThreshold: threshold, notes: '', lastUpdated: today };
+function item(name: string, category: 'cleaning' | 'office' | 'clinic', unit: string, quantity: number, threshold = 3, isConsumable = true): InventoryItem {
+  return { id: makeId(), name, category, unit, quantity, quarantineQuantity: 0, lowStockThreshold: threshold, notes: '', lastUpdated: today, isConsumable };
 }
 
 export const initialItems: InventoryItem[] = [
@@ -25,13 +25,13 @@ export const initialItems: InventoryItem[] = [
   item('LYSOL', 'cleaning', 'bottle', 10),
   item('MAGIC LIQUID HAND SOAP', 'cleaning', 'bottle', 12),
   item('SANICARE UPSIZE BATHROOM TISSUE', 'cleaning', 'pack', 25),
-  item('DUST PAN', 'cleaning', 'pcs', 10),
-  item('GARDEN TOOLS', 'cleaning', 'set', 6),
-  item('WALIS TINGTING', 'cleaning', 'pcs', 15),
+  item('DUST PAN', 'cleaning', 'pcs', 10, 3, false),
+  item('GARDEN TOOLS', 'cleaning', 'set', 6, 3, false),
+  item('WALIS TINGTING', 'cleaning', 'pcs', 15, 3, false),
   item('MTX GLASS CLEANER', 'cleaning', 'bottle', 6),
   item('RUBBING ALCOHOL', 'cleaning', 'bottle', 18),
   item('INCENSE', 'cleaning', 'pack', 4),
-  item('HOT WATER BAG', 'cleaning', 'pcs', 8),
+  item('HOT WATER BAG', 'cleaning', 'pcs', 8, 3, false),
   item('MASK PLUS', 'cleaning', 'box', 15),
   item('INDOPLAS GLOVES', 'cleaning', 'box', 12),
   item('N95 MASK', 'cleaning', 'box', 10),
@@ -41,7 +41,7 @@ export const initialItems: InventoryItem[] = [
   item('SPLENDA FURNITURE POLISH', 'cleaning', 'bottle', 6),
   item('PLEDGE', 'cleaning', 'bottle', 6),
   item('ALBATROSS', 'cleaning', 'bottle', 16),
-  item('SPORT GLOVES', 'cleaning', 'pair', 8),
+  item('SPORT GLOVES', 'cleaning', 'pair', 8, 3, false),
 
   // OFFICE SUPPLIES (51 items)
   item('FOLDER YELLOW', 'office', 'pcs', 25),
@@ -81,14 +81,14 @@ export const initialItems: InventoryItem[] = [
   item('GLUE STICK BIG', 'office', 'pcs', 25),
   item('GLUE STICK SMALL', 'office', 'pcs', 25),
   item('CHALK', 'office', 'box', 35),
-  item('DESKTOP CALCULATOR', 'office', 'pcs', 5),
+  item('DESKTOP CALCULATOR', 'office', 'pcs', 5, 3, false),
   item('PRINTO STAPLES', 'office', 'box', 20),
   item('WHITE GLUE', 'office', 'bottle', 15),
   item('STATIONERY TAPE', 'office', 'pcs', 20),
   item('HAPPY BRAND TAPE', 'office', 'pcs', 18),
-  item('STAPLER REMOVER', 'office', 'pcs', 6),
+  item('STAPLER REMOVER', 'office', 'pcs', 6, 3, false),
   item('PLASTIC PAPER FASTENER', 'office', 'box', 15),
-  item('USB', 'office', 'pcs', 8),
+  item('USB', 'office', 'pcs', 8, 3, false),
   item('WHITE FOLDER LONG', 'office', 'pcs', 45),
   item('WHITE FOLDER SHORT', 'office', 'pcs', 45),
   item('WHITE FOLDER SHORTER', 'office', 'pcs', 30),
@@ -97,14 +97,14 @@ export const initialItems: InventoryItem[] = [
   item('CACTUS PAPER A4', 'office', 'ream', 25),
 
   // CLINIC SUPPLIES (14 items)
-  item('BROOMS', 'clinic', 'pcs', 8),
+  item('BROOMS', 'clinic', 'pcs', 8, 3, false),
   item('DETERGENT', 'clinic', 'bottle', 10),
   item('FOAM', 'clinic', 'pcs', 6),
   item('TOOTHBRUSH', 'clinic', 'pcs', 20),
   item('BANDAGE', 'clinic', 'pcs', 30),
   item('GAUZE', 'clinic', 'pcs', 25),
   item('COTTON BALLS', 'clinic', 'pcs', 25),
-  item('THERMOMETER', 'clinic', 'pcs', 6),
+  item('THERMOMETER', 'clinic', 'pcs', 6, 3, false),
   item('PARACETAMOL', 'clinic', 'pcs', 100),
   item('BETADINE', 'clinic', 'bottle', 12),
   item('FACE MASK', 'clinic', 'box', 30),

@@ -235,7 +235,7 @@ export default function TransactionLog() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-2">
-                    {tx.type === 'borrow' && (
+                    {tx.type === 'borrow' && !tx.returnDate && (
                       <button 
                         onClick={() => setReturnTx(tx)} 
                         className="p-1.5 rounded-lg text-white transition-transform hover:scale-110"

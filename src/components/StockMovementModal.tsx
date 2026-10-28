@@ -51,44 +51,43 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, l
 
   const availableTypes = useMemo(() => {
     let base = isAdmin ? TYPE_CONFIG : TYPE_CONFIG.filter(tc => tc.type !== 'restock');
-    
-    // Safety check: Always keep the current 'type' or 'defaultType' in the list 
-    // so it doesn't disappear if classifications are mixed up.
-    const mustInclude = new Set([type, defaultType]);
 
     if (selectedItem) {
       if (selectedItem.isConsumable) {
-        return base.filter(tc => tc.type !== 'borrow' || mustInclude.has(tc.type));
+        return base.filter(tc => tc.type !== 'borrow');
       } else {
-        return base.filter(tc => tc.type !== 'use' || mustInclude.has(tc.type));
+        return base.filter(tc => tc.type !== 'use');
       }
     }
     return base;
-  }, [isAdmin, selectedItem, type, defaultType]);
+  }, [isAdmin, selectedItem]);
 
   // Validation state
   const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Removed auto-switching to give user full control over Borrow vs Use
-  /*
+  // Auto-switch type if the selected item doesn't support the current type
   useEffect(() => {
-    if (selectedItem) {
+    if (selectedItem && !lockType) {
       if (selectedItem.isConsumable && type === 'borrow') {
         setType('use');
       } else if (!selectedItem.isConsumable && type === 'use') {
         setType('borrow');
       }
     }
-  }, [selectedItem, type]);
-  */
+  }, [selectedItem, type, lockType]);
 
   const filtered = useMemo(() => {
-    if (!search) return items;
+    let list = items;
+    if (type === 'borrow') {
+      list = list.filter(i => !i.isConsumable);
+    } else if (type === 'use') {
+      list = list.filter(i => i.isConsumable);
+    }
+    if (!search) return list;
     const q = search.toLowerCase();
-    return items.filter(i => i.name.toUpperCase().includes(q.toUpperCase()));
-
-  }, [items, search]);
+    return list.filter(i => i.name.toUpperCase().includes(q.toUpperCase()));
+  }, [items, search, type]);
 
   const qtyNum = parseInt(qty) || 0;
   const newStock =
