@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import CSVImportModal from '../components/CSVImportModal';
 import { useLocations } from '../hooks/useLocations';
 import { useUsers } from '../hooks/useUsers';
+import { useImportSettings } from '../hooks/useImportSettings';
 import { useCategories } from '../hooks/useCategories';
 import { useUnits } from '../hooks/useUnits';
 import { useInventory } from '../context/InventoryContext';
-import { MapPin, Plus, Pencil, Trash2, Check, X, Settings, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck, ChevronDown, LayoutGrid, Ruler, CornerDownLeft } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Check, X, Settings, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck, ChevronDown, LayoutGrid, Ruler, CornerDownLeft, Upload } from 'lucide-react';
 import { UserRole } from '../types';
 
 // ─── Reusable Row Editor ─────────────────────────────────────────────────────
@@ -157,6 +159,11 @@ export default function SettingsPage() {
   const [newUnit, setNewUnit] = useState('');
   const [addingUnit, setAddingUnit] = useState(false);
 
+  const { settings, update } = useImportSettings();
+  const [showCSVImport, setShowCSVImport] = useState(false);
+
+
+
   const handleAddLocation = async () => {
     if (!newLocation.trim()) return;
     setAddingLoc(true);
@@ -242,7 +249,7 @@ export default function SettingsPage() {
           <div className="flex gap-3">
             <input
               className="modal-input flex-1"
-              placeholder="Enter category name…"
+              placeholder="Enter category name..."
               value={newCategory}
               onChange={e => setNewCategory(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
@@ -276,6 +283,34 @@ export default function SettingsPage() {
                 onDelete={deleteCategory}
               />
             ))}
+          </div>
+
+          {/* Import section */}
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="font-body text-sm font-semibold" style={{ color: 'var(--fg-color)' }} htmlFor="fallbackCat">Default import category:</label>
+              <select
+                id="fallbackCat"
+                value={settings.fallbackCategory}
+                onChange={e => update({ fallbackCategory: e.target.value })}
+                className="modal-input"
+                style={{ padding: '0.5rem 0.75rem', minWidth: 140 }}
+              >
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.name}>{cat.name}</option>
+                ))}
+              </select>
+              <span className="text-xs text-slate-400">(fallback when file has no category)</span>
+            </div>
+            <button
+              onClick={() => setShowCSVImport(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-body font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #4f46e5, #6366f1)', boxShadow: '0 4px 12px rgba(79,70,229,0.25)' }}
+            >
+              <Upload size={16} />
+              <span>Import Data from CSV / Excel</span>
+            </button>
+            <p className="text-xs text-slate-400 text-center">Items will be matched to the categories above. New categories are created automatically.</p>
           </div>
         </section>
 
@@ -389,6 +424,7 @@ export default function SettingsPage() {
 
         {/* User Management Section */}
         <UserManagementSection />
+        {showCSVImport && <CSVImportModal onClose={() => setShowCSVImport(false)} />}
       </div>
     </div>
   );

@@ -1,11 +1,14 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useInventory } from '../context/InventoryContext';
+import { useImportSettings } from '../hooks/useImportSettings';
 import { useAuth } from '../context/AuthContext';
-import { Category, getCategoryColor } from '../types';
+import { useCategories } from '../hooks/useCategories';
+import { Category, getCategoryColor, getCategoryLabel } from '../types';
 import ModalOverlay from './ModalOverlay';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { formatItemName } from '../lib/utils';
+import { initialItems } from '../data/initialItems';
 
 interface Props {
   onClose: () => void;
@@ -23,34 +26,131 @@ interface ParsedRow {
   isDuplicate?: boolean;
 }
 
+// Master dictionary of known school inventory items
+const KNOWN_ITEM_CATEGORIES: Record<string, string> = {
+  // Alias variations from real CSV data
+  'bleach disenfectant': 'cleaning',
+  'proclein hypocholorous acid': 'cleaning',
+  'indoplas(gloves)': 'cleaning',
+  'powerclean solution(dishwashing liquid)': 'cleaning',
+  'power clean solution (liquid hand soap)': 'cleaning',
+};
+
+// Populate known dictionary from initialItems catalog
+initialItems.forEach(item => {
+  if (item.name && item.category) {
+    KNOWN_ITEM_CATEGORIES[item.name.toLowerCase().trim()] = item.category;
+  }
+});
+
+// Smart keyword inference based on item names
+function inferCategoryFromName(name: string): Category | null {
+  const s = name.toLowerCase().trim();
+  if (!s) return null;
+
+  // 1. Direct dictionary match
+  if (KNOWN_ITEM_CATEGORIES[s]) return KNOWN_ITEM_CATEGORIES[s];
+
+  // 2. Partial dictionary match
+  for (const [knownName, cat] of Object.entries(KNOWN_ITEM_CATEGORIES)) {
+    if (s.includes(knownName) || (knownName.length > 5 && knownName.includes(s))) {
+      return cat;
+    }
+  }
+
+  // 3. Clinic keywords
+  const clinicKeywords = [
+    'paracetamol', 'betadine', 'thermometer', 'bandage', 'gauze', 'cotton', 'medicine',
+    'medic', 'medical', 'pharma', 'tablet', 'capsule', 'syrup', 'antiseptic', 'ointment',
+    'first aid', 'biogesic', 'neozep', 'amoxicillin', 'mefenamic', 'ibuprofen', 'splint',
+    'syringe', 'stethoscope', 'sterile', 'blood pressure', 'bp apparatus', 'firstaid'
+  ];
+  if (clinicKeywords.some(k => s.includes(k))) return 'clinic';
+
+  // 4. Cleaning keywords
+  const cleaningKeywords = [
+    'bleach', 'detergent', 'cleaner', 'cleanser', 'disinfectant', 'disenfectant', 'dust pan',
+    'dustpan', 'walis', 'tingting', 'trash', 'garbage', 'sponge', 'scrub', 'muriatic',
+    'sunrox', 'lysol', 'hand soap', 'dishwashing', 'furniture polish', 'pledge', 'albatross',
+    'sanicare', 'bathroom tissue', 'mop', 'pail', 'toilet bowl', 'degreaser', 'janitor',
+    'air freshener', 'doormat', 'hypochlorous', 'hypocholorous'
+  ];
+  if (cleaningKeywords.some(k => s.includes(k))) return 'cleaning';
+
+  // 5. Office keywords
+  const officeKeywords = [
+    'folder', 'envelope', 'paper', 'ink', 'fastener', 'clip', 'clips', 'tape', 'staple', 'staples',
+    'stapler', 'calculator', 'glue', 'pad', 'chalk', 'usb', 'flash drive', 'medal', 'ballpen',
+    'pen', 'pencil', 'marker', 'highlighter', 'ruler', 'eraser', 'scissors', 'puncher', 'portfolio',
+    'binder', 'whiteboard', 'cartolina', 'manila paper', 'bond paper', 'columnar', 'certificate',
+    'laminating', 'clearbook', 'carbon paper', 'stamp pad', 'push pin', 'glossy paper'
+  ];
+  if (officeKeywords.some(k => s.includes(k))) return 'office';
+
+  return null;
+}
+
 // Normalize a header string to a known key
 function normalizeHeader(h: string): string {
-  const s = h.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-  if (['name', 'itemname', 'item', 'description', 'product'].includes(s)) return 'name';
-  if (['category', 'cat', 'type', 'group'].includes(s)) return 'category';
-  if (['unit', 'uom', 'unitofmeasure', 'units'].includes(s)) return 'unit';
-  if (['quantity', 'qty', 'stock', 'count', 'amount'].includes(s)) return 'quantity';
-  if (['threshold', 'lowstock', 'lowstockthreshold', 'minstocklevel', 'reorderlevel', 'low'].includes(s)) return 'threshold';
-  if (['notes', 'note', 'remarks', 'comment', 'comments', 'description'].includes(s)) return 'notes';
-  if (['location', 'loc', 'room', 'storage', 'area', 'place', 'cabinet', 'storagetype', 'storagelocation'].includes(s)) return 'location';
-  if (['consumable', 'isconsumable', 'type', 'classification', 'asset'].includes(s)) return 'consumable';
+  const s = String(h || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  if (['name', 'itemname', 'item', 'description', 'product', 'particulars', 'itemdescription'].includes(s)) return 'name';
+  if (['category', 'cat', 'categories', 'dept', 'department', 'section', 'group', 'itemgroup', 'classification'].includes(s)) return 'category';
+  if (['unit', 'uom', 'unitofmeasure', 'units', 'measure'].includes(s)) return 'unit';
+  if (['quantity', 'qty', 'stock', 'count', 'amount', 'balance', 'currentstock', 'onhand'].includes(s)) return 'quantity';
+  if (['threshold', 'lowstock', 'lowstockthreshold', 'minstocklevel', 'reorderlevel', 'low', 'min', 'minimum'].includes(s)) return 'threshold';
+  if (['notes', 'note', 'remarks', 'comment', 'comments', 'remark'].includes(s)) return 'notes';
+  if (['location', 'loc', 'room', 'storage', 'area', 'place', 'cabinet', 'storagetype', 'storagelocation', 'shelf'].includes(s)) return 'location';
+  if (['consumable', 'isconsumable', 'asset', 'isasset', 'nature'].includes(s)) return 'consumable';
   return s;
 }
 
-// Normalize category string to our enum
-function normalizeCategory(raw: string): Category {
-  const s = raw.toLowerCase().trim();
-  if (s.includes('clean') || s.includes('janitor')) return 'cleaning';
-  if (s.includes('office') || s.includes('admin') || s.includes('paper')) return 'office';
-  if (s.includes('clinic') || s.includes('medic') || s.includes('health') || s.includes('first aid')) return 'clinic';
-  return 'office'; // default fallback
+// Smart category resolver combining columns, sheets, dictionary & keywords
+function resolveCategory(
+  rawCategory: string | undefined,
+  itemName: string,
+  sheetHint: string | undefined,
+  existingItems: { name: string; category: Category }[],
+  availableCategoryNames: string[],
+  fallbackCategory: string = 'office'
+): Category {
+  // A. Explicit category column provided in row
+  if (rawCategory && rawCategory.trim()) {
+    const s = rawCategory.toLowerCase().trim();
+    if (s.includes('clean') || s.includes('janitor')) return 'cleaning';
+    if (s.includes('office') || s.includes('admin') || s.includes('paper') || s.includes('stationer')) return 'office';
+    if (s.includes('clinic') || s.includes('medic') || s.includes('health') || s.includes('first aid')) return 'clinic';
+    const matched = availableCategoryNames.find(c => c.toLowerCase() === s || s.includes(c.toLowerCase()));
+    if (matched) return matched;
+    return s;
+  }
+
+  // B. Sheet or File name hint
+  if (sheetHint && sheetHint.trim()) {
+    const s = sheetHint.toLowerCase().trim();
+    if (s.includes('clean') || s.includes('janitor')) return 'cleaning';
+    if (s.includes('office') || s.includes('admin') || s.includes('paper') || s.includes('stationer')) return 'office';
+    if (s.includes('clinic') || s.includes('medic') || s.includes('health') || s.includes('first aid')) return 'clinic';
+    const matched = availableCategoryNames.find(c => c.toLowerCase() === s || s.includes(c.toLowerCase()));
+    if (matched) return matched;
+  }
+
+  // C. Match with existing item in current inventory
+  const normName = formatItemName(itemName).toLowerCase();
+  const existing = existingItems.find(i => formatItemName(i.name).toLowerCase() === normName);
+  if (existing && existing.category) return existing.category;
+
+  // D. Infer from item name (catalog dictionary & keyword matching)
+  const inferred = inferCategoryFromName(itemName);
+  if (inferred) return inferred;
+
+  // E. Fallback — use admin-configured default category
+  return fallbackCategory as Category;
 }
 
 function parseCSV(text: string): { headers: string[]; rows: string[][] } {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (lines.length === 0) return { headers: [], rows: [] };
 
-  // Simple CSV parser handling quoted fields
   const parseLine = (line: string): string[] => {
     const result: string[] = [];
     let current = '';
@@ -83,6 +183,8 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 export default function CSVImportModal({ onClose }: Props) {
   const { items, addItem, updateItem, addTransaction, showToast, wipeAllItems } = useInventory();
   const { user } = useAuth();
+  const { categories: dbCategories, addCategory } = useCategories();
+  const { settings: importSettings } = useImportSettings();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [parsed, setParsed] = useState<ParsedRow[]>([]);
@@ -100,65 +202,87 @@ export default function CSVImportModal({ onClose }: Props) {
   const [wiping, setWiping] = useState(false);
   const [confirmWipe, setConfirmWipe] = useState(false);
 
-  // Scan all rows to find the header row (the one with a 'Name' column)
-  const processAllRows = (allRows: string[][]) => {
-    // Check for Sucat Elementary School specific format
-    const headerStr = allRows[0]?.[0]?.toUpperCase() || '';
-    const isSucatFormat = headerStr.includes('SUCAT ELEMENTARY') || headerStr.includes('SUCAT SENIOR HIGH SCHOOL');
-    
-    if (isSucatFormat) {
-      const existingNames = new Set(items.map(i => formatItemName(i.name).toLowerCase()));
-      const parsedItems: ParsedRow[] = [];
-      
-      // Start from Row 6 (index 6) based on inspection
-      // Col Mapping: 0,1 (Cleaning In), 2,3 (Cleaning Out), 4,5 (Office In), 6,7 (Office Out), 8,9 (Clinic In), 10,11 (Clinic Out)
-      const sections: { col: number, cat: Category }[] = [
-        { col: 0, cat: 'cleaning' }, { col: 2, cat: 'cleaning' },
-        { col: 4, cat: 'office' }, { col: 6, cat: 'office' },
-        { col: 8, cat: 'clinic' }, { col: 10, cat: 'clinic' }
-      ];
+  const availableCategoryNames = useMemo(() => {
+    const list = ['cleaning', 'office', 'clinic'];
+    dbCategories.forEach(c => {
+      const n = c.name.toLowerCase().trim();
+      if (n && !list.includes(n)) list.push(n);
+    });
+    return list;
+  }, [dbCategories]);
 
-      for (let i = 6; i < allRows.length; i++) {
-        const row = allRows[i];
-        sections.forEach(sec => {
-          const rawName = row[sec.col]?.trim();
-          const qtyVal = row[sec.col + 1];
-          if (rawName && rawName !== 'Materials' && rawName !== '') {
-            const formattedName = formatItemName(rawName);
-            const nameLower = formattedName.toLowerCase();
-            const isDuplicate = existingNames.has(nameLower);
-            
-            parsedItems.push({
-              name: formattedName,
-              category: sec.cat,
-              unit: 'PCS',
-              quantity: Math.max(0, parseInt(qtyVal) || 0),
-              lowStockThreshold: 3,
-              notes: '',
-              location: undefined,
-              isConsumable: true,
-              isDuplicate
-            });
-            existingNames.add(nameLower);
-          }
-        });
-      }
+  const availableCategories = useMemo(() => {
+    const set = new Set(['cleaning', 'office', 'clinic']);
+    dbCategories.forEach(c => set.add(c.name.toLowerCase()));
+    parsed.forEach(p => set.add(p.category.toLowerCase()));
+    return Array.from(set);
+  }, [dbCategories, parsed]);
 
-      if (parsedItems.length === 0) {
-        setError('Detected Sucat Elementary School format but found no items starting from Row 7.');
-        return;
-      }
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    parsed.forEach(r => {
+      counts[r.category] = (counts[r.category] || 0) + 1;
+    });
+    return counts;
+  }, [parsed]);
 
-      setParsed(parsedItems);
+  // Process Sucat multi-column format
+  const processSucatRows = (allRows: string[][]) => {
+    const existingNames = new Set(items.map(i => formatItemName(i.name).toLowerCase()));
+    const parsedItems: ParsedRow[] = [];
+
+    // Col Mapping: 0,1 (Cleaning In), 2,3 (Cleaning Out), 4,5 (Office In), 6,7 (Office Out), 8,9 (Clinic In), 10,11 (Clinic Out)
+    const sections: { col: number; cat: Category }[] = [
+      { col: 0, cat: 'cleaning' }, { col: 2, cat: 'cleaning' },
+      { col: 4, cat: 'office' }, { col: 6, cat: 'office' },
+      { col: 8, cat: 'clinic' }, { col: 10, cat: 'clinic' }
+    ];
+
+    for (let i = 6; i < allRows.length; i++) {
+      const row = allRows[i];
+      sections.forEach(sec => {
+        const rawName = row[sec.col]?.trim();
+        const qtyVal = row[sec.col + 1];
+        if (rawName && rawName !== 'Materials' && rawName !== '' && rawName !== 'Item Name') {
+          const formattedName = formatItemName(rawName);
+          const nameLower = formattedName.toLowerCase();
+          const isDuplicate = existingNames.has(nameLower);
+
+          parsedItems.push({
+            name: formattedName,
+            category: sec.cat,
+            unit: 'PCS',
+            quantity: Math.max(0, parseInt(qtyVal) || 0),
+            lowStockThreshold: 3,
+            notes: '',
+            location: undefined,
+            isConsumable: true,
+            isDuplicate
+          });
+          existingNames.add(nameLower);
+        }
+      });
+    }
+
+    if (parsedItems.length === 0) {
+      setError('Detected Sucat Elementary School format but found no items starting from Row 7.');
       return;
     }
 
+    setParsed(parsedItems);
+  };
+
+  // Parse generic sheet rows
+  const parseSheetRows = (
+    rows: string[][],
+    sheetHint: string | undefined,
+    existingNames: Set<string>
+  ): ParsedRow[] => {
     let headerRowIdx = -1;
     let nameIdx = -1;
 
-    // Scan up to 20 rows looking for a header row
-    for (let i = 0; i < Math.min(allRows.length, 20); i++) {
-      const mapped = allRows[i].map(normalizeHeader);
+    for (let i = 0; i < Math.min(rows.length, 20); i++) {
+      const mapped = rows[i].map(normalizeHeader);
       const idx = mapped.indexOf('name');
       if (idx !== -1) {
         headerRowIdx = i;
@@ -168,13 +292,11 @@ export default function CSVImportModal({ onClose }: Props) {
     }
 
     if (headerRowIdx === -1 || nameIdx === -1) {
-      const firstRowPreview = allRows[0]?.slice(0, 5).join(', ') || '(empty)';
-      setError(`Could not find a "Name" column. First row: ${firstRowPreview}`);
-      return;
+      return [];
     }
 
-    const headers = allRows[headerRowIdx];
-    const dataRows = allRows.slice(headerRowIdx + 1);
+    const headers = rows[headerRowIdx];
+    const dataRows = rows.slice(headerRowIdx + 1);
     const mapped = headers.map(normalizeHeader);
     const catIdx = mapped.indexOf('category');
     const unitIdx = mapped.indexOf('unit');
@@ -184,40 +306,37 @@ export default function CSVImportModal({ onClose }: Props) {
     const locIdx = mapped.indexOf('location');
     const consIdx = mapped.indexOf('consumable');
 
-    const existingNames = new Set(items.map(i => formatItemName(i.name).toLowerCase()));
+    const result: ParsedRow[] = [];
 
-    const parsedItems: ParsedRow[] = dataRows
-      .filter(row => row[nameIdx]?.trim())
-      .map(row => {
-        const rawName = row[nameIdx]?.trim() || '';
-        const formattedName = formatItemName(rawName);
-        const nameLower = formattedName.toLowerCase();
-        const isDuplicate = existingNames.has(nameLower);
-        
-        existingNames.add(nameLower);
+    for (const row of dataRows) {
+      const rawName = row[nameIdx]?.trim();
+      if (!rawName || rawName === 'Materials' || rawName === 'Item Name' || rawName === 'Name') continue;
 
-        const consRaw = consIdx >= 0 ? row[consIdx]?.toLowerCase() || '' : '';
-        const isConsumable = consRaw.includes('asset') || consRaw.includes('non') || consRaw === 'false' || consRaw === 'no' ? false : true;
+      const formattedName = formatItemName(rawName);
+      const nameLower = formattedName.toLowerCase();
+      const isDuplicate = existingNames.has(nameLower);
+      existingNames.add(nameLower);
 
-        return {
-          name: formattedName,
-          category: catIdx >= 0 ? normalizeCategory(row[catIdx] || '') : 'office',
-          unit: unitIdx >= 0 ? (row[unitIdx]?.trim().toUpperCase() || 'PCS') : 'PCS',
-          quantity: qtyIdx >= 0 ? Math.max(0, parseInt(row[qtyIdx]) || 0) : 0,
-          lowStockThreshold: threshIdx >= 0 ? Math.max(0, parseInt(row[threshIdx]) || 3) : 3,
-          notes: notesIdx >= 0 ? (row[notesIdx]?.trim() || '') : '',
-          location: locIdx >= 0 ? (row[locIdx]?.trim().toUpperCase() || undefined) : undefined,
-          isConsumable,
-          isDuplicate,
-        };
+      const consRaw = consIdx >= 0 ? row[consIdx]?.toLowerCase() || '' : '';
+      const isConsumable = consRaw.includes('asset') || consRaw.includes('non') || consRaw === 'false' || consRaw === 'no' ? false : true;
+
+      const rawCat = catIdx >= 0 ? row[catIdx] : undefined;
+      const detectedCat = resolveCategory(rawCat, formattedName, sheetHint, items, availableCategoryNames, importSettings.fallbackCategory);
+
+      result.push({
+        name: formattedName,
+        category: detectedCat,
+        unit: unitIdx >= 0 ? (row[unitIdx]?.trim().toUpperCase() || 'PCS') : 'PCS',
+        quantity: qtyIdx >= 0 ? Math.max(0, parseInt(row[qtyIdx]) || 0) : 0,
+        lowStockThreshold: threshIdx >= 0 ? Math.max(0, parseInt(row[threshIdx]) || 3) : 3,
+        notes: notesIdx >= 0 ? (row[notesIdx]?.trim() || '') : '',
+        location: locIdx >= 0 ? (row[locIdx]?.trim().toUpperCase() || undefined) : undefined,
+        isConsumable,
+        isDuplicate,
       });
-
-    if (parsedItems.length === 0) {
-      setError('No valid items found in the file.');
-      return;
     }
 
-    setParsed(parsedItems);
+    return result;
   };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,17 +356,60 @@ export default function CSVImportModal({ onClose }: Props) {
         try {
           const data = new Uint8Array(ev.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          const json: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-          if (json.length < 2) {
-            setError('Excel file appears empty or has no data rows.');
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            setError('Excel file contains no sheets.');
             return;
           }
 
-          const allRows = json.map(row => row.map(String));
-          processAllRows(allRows);
+          // Check if any sheet has Sucat multi-column format
+          let isSucatFormatFile = false;
+          let sucatSheetRows: string[][] | null = null;
+
+          for (const sName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sName];
+            const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            if (rows.length > 5) {
+              const hasSucatHeader = rows.slice(0, 6).some(r =>
+                r.some(c => {
+                  const val = String(c || '').toUpperCase();
+                  return val.includes('SUCAT ELEMENTARY') || val.includes('SUCAT SENIOR HIGH') ||
+                    (val.includes('CLEANING') && r.some(c2 => String(c2 || '').toUpperCase().includes('OFFICE')));
+                })
+              );
+              if (hasSucatHeader) {
+                isSucatFormatFile = true;
+                sucatSheetRows = rows.map(r => r.map(String));
+                break;
+              }
+            }
+          }
+
+          if (isSucatFormatFile && sucatSheetRows) {
+            processSucatRows(sucatSheetRows);
+            return;
+          }
+
+          // Otherwise, process ALL sheets in the workbook
+          const allParsed: ParsedRow[] = [];
+          const existingNames = new Set(items.map(i => formatItemName(i.name).toLowerCase()));
+
+          for (const sName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sName];
+            const json: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            if (json.length >= 2) {
+              const rows = json.map(r => r.map(String));
+              const sheetItems = parseSheetRows(rows, sName, existingNames);
+              allParsed.push(...sheetItems);
+            }
+          }
+
+          if (allParsed.length === 0) {
+            setError('No valid items found in the Excel file. Please ensure there is a "Name" or "Item" column.');
+            return;
+          }
+
+          setParsed(allParsed);
         } catch {
           setError('Failed to parse Excel file. Please check the format.');
         }
@@ -266,7 +428,31 @@ export default function CSVImportModal({ onClose }: Props) {
             return;
           }
 
-          processAllRows([headers, ...rows]);
+          const allRows = [headers, ...rows];
+
+          const hasSucatHeader = allRows.slice(0, 6).some(r =>
+            r.some(c => {
+              const val = String(c || '').toUpperCase();
+              return val.includes('SUCAT ELEMENTARY') || val.includes('SUCAT SENIOR HIGH') ||
+                (val.includes('CLEANING') && r.some(c2 => String(c2 || '').toUpperCase().includes('OFFICE')));
+            })
+          );
+
+          if (hasSucatHeader) {
+            processSucatRows(allRows);
+            return;
+          }
+
+          const existingNames = new Set(items.map(i => formatItemName(i.name).toLowerCase()));
+          const fileHint = file.name.replace(/\.[^/.]+$/, '');
+          const parsedItems = parseSheetRows(allRows, fileHint, existingNames);
+
+          if (parsedItems.length === 0) {
+            setError('No valid items found in the CSV file. Please ensure there is a "Name" or "Item" column.');
+            return;
+          }
+
+          setParsed(parsedItems);
         } catch {
           setError('Failed to parse CSV file. Please check the format.');
         }
@@ -295,6 +481,16 @@ export default function CSVImportModal({ onClose }: Props) {
     const changedLog: { name: string; oldQty: number; newQty: number; diff: number; category: string }[] = [];
     const addedLog: { name: string; qty: number; category: string }[] = [];
 
+    // Register any new categories if found in parsed items
+    for (const row of parsed) {
+      if (row.category && !availableCategoryNames.includes(row.category.toLowerCase())) {
+        try {
+          await addCategory(row.category.toLowerCase());
+          availableCategoryNames.push(row.category.toLowerCase());
+        } catch { /* ignore if already exists */ }
+      }
+    }
+
     for (const row of parsed) {
       if (row.isDuplicate) {
         if (updateMode) {
@@ -304,7 +500,7 @@ export default function CSVImportModal({ onClose }: Props) {
           );
           if (existing) {
             // Smart Check: Only update if something actually changed
-            const hasChanged = 
+            const hasChanged =
               existing.category !== row.category ||
               existing.unit !== row.unit ||
               existing.quantity !== row.quantity ||
@@ -330,9 +526,8 @@ export default function CSVImportModal({ onClose }: Props) {
                 location: row.location || existing.location,
                 isConsumable: row.isConsumable,
               });
-              // Log the sync as a transaction so it appears in the Transaction Log
+
               const qtyDiff = row.quantity - existing.quantity;
-              // Only add to "What Changed" list if qty actually changed
               if (qtyDiff !== 0) {
                 changedLog.push({ name: row.name, oldQty: existing.quantity, newQty: row.quantity, diff: qtyDiff, category: row.category });
                 setChangedItems([...changedLog]);
@@ -394,96 +589,158 @@ export default function CSVImportModal({ onClose }: Props) {
     showToast(parts.join(' · ') || 'Nothing to import', failCount > 0 ? 'warning' : 'success');
   };
 
-
   return (
-    <ModalOverlay onClose={onClose}>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="rounded-xl flex items-center justify-center" style={{ width: 36, height: 36, background: '#0d1b6e' }}>
+    <ModalOverlay onClose={onClose} maxWidth="max-w-3xl" className="flex flex-col max-h-[90vh]">
+      {/* Header */}
+      <div className="flex items-center gap-2 pb-3 border-b border-[var(--card-border)] shrink-0">
+        <div className="rounded-xl flex items-center justify-center shrink-0" style={{ width: 36, height: 36, background: '#0d1b6e' }}>
           <FileSpreadsheet size={18} color="white" />
         </div>
-        <h3 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>
-          Import Data from File
-        </h3>
+        <div>
+          <h3 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)' }}>
+            Import Data from File
+          </h3>
+          <p className="font-body text-xs text-slate-500 dark:text-slate-400">
+            Auto-categorizes items to Cleaning Materials, Office Supplies, Clinic Supplies, etc.
+          </p>
+        </div>
       </div>
 
       {!done ? (
         <>
-          {/* ── Fresh Start / Wipe Section ── */}
-          <div
-            className="rounded-xl p-4 mb-4"
-            style={{ background: 'rgba(185,28,28,0.06)', border: '1px solid rgba(185,28,28,0.2)' }}
-          >
-            <p className="font-body font-semibold mb-1" style={{ fontSize: 13, color: '#b91c1c' }}>
-              🗑️ Fresh Start — Clear All Existing Items
-            </p>
-            <p className="font-body mb-3" style={{ fontSize: 12, color: 'var(--muted-text)' }}>
-              Use this if you want to replace the current inventory completely with your new file.
-              This will <strong>permanently delete all items and transactions</strong> before you import.
-              Skip this step if you just want to add new items on top of what's already here.
-            </p>
-
-            {!confirmWipe ? (
-              <button
-                onClick={() => setConfirmWipe(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg font-body font-semibold transition-all hover:opacity-80"
-                style={{ fontSize: 13, background: '#b91c1c', color: 'white', border: 'none', cursor: 'pointer' }}
+          {/* Scrollable Body Content */}
+          <div className="flex-1 overflow-y-auto min-h-0 py-3 pr-1 space-y-3">
+            {/* ── Fresh Start / Wipe Section ── */}
+            {items.length === 0 ? (
+              <div
+                className="rounded-xl p-3 flex items-center gap-2.5"
+                style={{ background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.2)' }}
               >
-                🗑️ Clear Everything &amp; Start Fresh
-              </button>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <p className="font-body font-semibold" style={{ fontSize: 13, color: '#b91c1c' }}>
-                  ⚠️ Are you sure? This cannot be undone.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    disabled={wiping}
-                    onClick={async () => {
-                      setWiping(true);
-                      try {
-                        await wipeAllItems();
-                        setParsed([]);
-                        setFileName('');
-                        showToast('✅ All items cleared. You can now import your fresh data.', 'success');
-                        setConfirmWipe(false);
-                      } catch {
-                        showToast('Failed to clear items. Please try again.', 'error');
-                      } finally {
-                        setWiping(false);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-body font-semibold transition-all"
-                    style={{ fontSize: 13, background: '#b91c1c', color: 'white', border: 'none', cursor: wiping ? 'not-allowed' : 'pointer', opacity: wiping ? 0.6 : 1 }}
-                  >
-                    {wiping ? <Loader2 size={14} className="animate-spin" /> : '✓'} Yes, Clear Everything
-                  </button>
-                  <button
-                    onClick={() => setConfirmWipe(false)}
-                    className="px-4 py-2 rounded-lg font-body font-semibold transition-all hover:opacity-80"
-                    style={{ fontSize: 13, background: 'var(--input-bg)', color: 'var(--fg-color)', border: '1px solid var(--card-border)', cursor: 'pointer' }}
-                  >
-                    Cancel
-                  </button>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(21,128,61,0.15)', color: '#15803d' }}>
+                  <CheckCircle size={16} />
+                </div>
+                <div>
+                  <p className="font-body font-semibold text-xs" style={{ color: '#15803d' }}>
+                    Inventory Is Clear &amp; Fresh
+                  </p>
+                  <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
+                    Your inventory is empty. All imported items will be added as new records.
+                  </p>
                 </div>
               </div>
+            ) : (
+              <div
+                className="rounded-xl p-3"
+                style={{ background: 'rgba(185,28,28,0.06)', border: '1px solid rgba(185,28,28,0.2)' }}
+              >
+                {!confirmWipe ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div>
+                      <p className="font-body font-semibold text-xs" style={{ color: '#b91c1c' }}>
+                        🗑️ Fresh Start ({items.length} existing items)
+                      </p>
+                      <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
+                        Permanently wipe existing items and transactions before importing to replace everything completely.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setConfirmWipe(true)}
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-body font-semibold transition-all hover:opacity-85 text-xs text-white"
+                      style={{ background: '#b91c1c', border: 'none', cursor: 'pointer' }}
+                    >
+                      Clear All &amp; Start Fresh
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <p className="font-body font-semibold text-xs" style={{ color: '#b91c1c' }}>
+                      ⚠️ Are you sure? This will delete all {items.length} items and transactions. This cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={wiping}
+                        onClick={async () => {
+                          setWiping(true);
+                          try {
+                            await wipeAllItems();
+                            setParsed([]);
+                            setFileName('');
+                            showToast('✅ All items cleared. You can now import your fresh data.', 'success');
+                            setConfirmWipe(false);
+                          } catch {
+                            showToast('Failed to clear items. Please try again.', 'error');
+                          } finally {
+                            setWiping(false);
+                          }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-body font-semibold text-xs text-white"
+                        style={{ background: '#b91c1c', border: 'none', cursor: wiping ? 'not-allowed' : 'pointer', opacity: wiping ? 0.6 : 1 }}
+                      >
+                        {wiping ? <Loader2 size={13} className="animate-spin" /> : '✓'} Yes, Clear Everything
+                      </button>
+                      <button
+                        onClick={() => setConfirmWipe(false)}
+                        className="px-3 py-1.5 rounded-lg font-body font-semibold text-xs hover:opacity-80"
+                        style={{ background: 'var(--input-bg)', color: 'var(--fg-color)', border: '1px solid var(--card-border)', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
-          </div>
 
-          <div
-            onClick={() => fileRef.current?.click()}
-            className="rounded-xl p-6 flex flex-col items-center gap-2 cursor-pointer transition-all hover:opacity-90"
-            style={{
-              border: '2px dashed var(--card-border)',
-              background: 'var(--input-bg)',
-            }}
-          >
-            <Upload size={28} style={{ color: 'var(--muted-text)' }} />
-            <span className="font-body font-semibold" style={{ fontSize: 14, color: 'var(--fg-color)' }}>
-              {fileName || 'Click to select CSV or Excel file'}
-            </span>
-            <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-              Supports .csv, .xlsx, .xls — Columns: Name (required), Category, Unit, Quantity, Location
-            </span>
+            {/* File selection / File info */}
+            {!fileName ? (
+              <div
+                onClick={() => fileRef.current?.click()}
+                className="rounded-xl p-6 flex flex-col items-center gap-2 cursor-pointer transition-all hover:opacity-90"
+                style={{
+                  border: '2px dashed var(--card-border)',
+                  background: 'var(--input-bg)',
+                }}
+              >
+                <Upload size={28} style={{ color: 'var(--muted-text)' }} />
+                <span className="font-body font-semibold" style={{ fontSize: 14, color: 'var(--fg-color)' }}>
+                  Click to select Excel (.xlsx, .xls) or CSV file
+                </span>
+                <span className="font-body text-center max-w-md" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
+                  Supports multi-sheet workbooks or single sheets. Columns: Name (required), Category, Unit, Quantity, Location. Categories will be automatically routed!
+                </span>
+              </div>
+            ) : (
+              <div
+                className="rounded-xl p-3 flex items-center justify-between gap-3"
+                style={{ background: 'var(--input-bg)', border: '1px solid var(--card-border)' }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: 'rgba(21,128,61,0.12)', color: '#15803d' }}
+                  >
+                    <FileSpreadsheet size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-body font-semibold text-xs truncate" style={{ color: 'var(--fg-color)' }}>
+                      {fileName}
+                    </p>
+                    <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
+                      {parsed.length} items parsed from file
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="shrink-0 font-body font-semibold text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-85"
+                  style={{ background: 'var(--card-bg)', color: 'var(--fg-color)', border: '1px solid var(--card-border)', cursor: 'pointer' }}
+                >
+                  Change File
+                </button>
+              </div>
+            )}
+
             <input
               ref={fileRef}
               type="file"
@@ -491,203 +748,254 @@ export default function CSVImportModal({ onClose }: Props) {
               onChange={handleFile}
               className="hidden"
             />
+
+            {error && (
+              <div className="flex items-start gap-2 p-3 rounded-xl" style={{ background: 'rgba(185,28,28,0.1)', border: '1px solid rgba(185,28,28,0.2)' }}>
+                <AlertTriangle size={16} color="#b91c1c" className="flex-shrink-0 mt-0.5" />
+                <span className="font-body" style={{ fontSize: 12, color: '#b91c1c', wordBreak: 'break-word' }}>{error}</span>
+              </div>
+            )}
+
+            {/* Smart Sync toggle */}
+            {parsed.length > 0 && duplicateCount > 0 && (
+              <div
+                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer select-none"
+                style={{ background: updateMode ? 'rgba(21,128,61,0.08)' : 'var(--input-bg)', border: `1px solid ${updateMode ? 'rgba(21,128,61,0.25)' : 'var(--card-border)'}`, transition: 'all 0.2s' }}
+                onClick={() => setUpdateMode(m => !m)}
+              >
+                <div
+                  className="relative flex-shrink-0 rounded-full transition-all"
+                  style={{ width: 36, height: 20, background: updateMode ? '#15803d' : 'var(--card-border)', transition: 'background 0.2s' }}
+                >
+                  <div
+                    className="absolute top-1 rounded-full bg-white transition-all"
+                    style={{ width: 12, height: 12, left: updateMode ? 20 : 4, transition: 'left 0.2s' }}
+                  />
+                </div>
+                <div>
+                  <p className="font-body font-semibold" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
+                    Smart Sync &amp; Merge
+                  </p>
+                  <p className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
+                    {updateMode
+                      ? `Automatically detects changes and updates existing items. New items will be added.`
+                      : `Only add new items. Existing items will be skipped.`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Preview table & category summary */}
+            {parsed.length > 0 && (
+              <div className="space-y-2">
+                {/* Category detection summary pills */}
+                <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+                  <span className="font-body text-xs font-bold text-slate-500 dark:text-slate-400">
+                    Auto-Categorized:
+                  </span>
+                  {Object.entries(categoryCounts).map(([cat, count]) => (
+                    <span
+                      key={cat}
+                      className="font-body text-xs font-bold px-2.5 py-0.5 rounded-lg text-white flex items-center gap-1.5 shadow-sm"
+                      style={{ background: getCategoryColor(cat) }}
+                    >
+                      <span>{getCategoryLabel(cat)}</span>
+                      <span className="bg-black/25 px-1.5 py-0.2 rounded text-[10px]">{count}</span>
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="font-body font-semibold" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
+                    Preview — {newItems.length} new
+                    {duplicateCount > 0 && (
+                      <span style={{ color: updateMode ? '#0d1b6e' : '#d97706' }}>
+                        {' · '}{duplicateCount} {updateMode ? 'will update' : 'will skip'}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
+                    Showing first {Math.min(parsed.length, 12)} of {parsed.length}
+                  </span>
+                </div>
+
+                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 220, overflowY: 'auto' }}>
+                  <table className="w-full" style={{ fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--table-header-bg)' }}>
+                        {['Name', 'Assigned Category', 'Unit', 'Qty', 'Threshold', 'Location'].map(h => (
+                          <th key={h} className="text-left px-3 py-2 font-body uppercase" style={{ fontSize: 10, color: 'var(--muted-text)', fontWeight: 500 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsed.slice(0, 12).map((row, idx) => (
+                        <tr key={idx} style={{
+                          borderBottom: '1px solid var(--card-border)',
+                          opacity: row.isDuplicate && !updateMode ? 0.45 : 1,
+                          background: row.isDuplicate
+                            ? updateMode ? 'rgba(13,27,110,0.06)' : 'rgba(217,119,6,0.08)'
+                            : undefined,
+                        }}>
+                          <td className="px-3 py-1.5 font-body font-semibold" style={{ color: 'var(--fg-color)' }}>
+                            {row.name}
+                            {row.isDuplicate && (
+                              <span
+                                className="font-body ml-1.5 px-1.5 py-0.5 rounded"
+                                style={{
+                                  fontSize: 9,
+                                  background: updateMode ? 'rgba(13,27,110,0.15)' : 'rgba(217,119,6,0.15)',
+                                  color: updateMode ? '#0d1b6e' : '#d97706',
+                                }}
+                              >
+                                {updateMode ? 'will update' : 'skip'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <select
+                              value={row.category}
+                              onChange={(e) => {
+                                const newCat = e.target.value;
+                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, category: newCat } : item));
+                              }}
+                              className="font-body font-bold px-2 py-0.5 rounded text-white text-[11px] border border-white/20 cursor-pointer outline-none shadow-sm transition-all"
+                              style={{ background: getCategoryColor(row.category) }}
+                              title="Click to adjust category"
+                            >
+                              {availableCategories.map(cat => (
+                                <option key={cat} value={cat} style={{ background: '#1e293b', color: 'white' }}>
+                                  {getCategoryLabel(cat)}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-1.5 font-body" style={{ color: 'var(--muted-text)' }}>{row.unit}</td>
+                          <td className="px-3 py-1.5 font-body font-bold" style={{ color: 'var(--fg-color)' }}>{row.quantity}</td>
+                          <td className="px-3 py-1.5 font-body" style={{ color: 'var(--muted-text)' }}>{row.lowStockThreshold}</td>
+                          <td className="px-3 py-1.5 font-body" style={{ color: row.location ? '#0d1b6e' : 'var(--muted-text)', fontStyle: row.location ? 'normal' : 'italic' }}>
+                            {row.location || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                      {parsed.length > 12 && (
+                        <tr>
+                          <td colSpan={6} className="text-center py-2 font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
+                            ...and {parsed.length - 12} more items correctly categorized
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Import progress */}
+            {importing && (
+              <div className="p-4 rounded-xl" style={{ background: 'var(--input-bg)', border: '1px solid var(--card-border)' }}>
+                <div className="w-full rounded-full overflow-hidden" style={{ height: 10, background: 'rgba(0,0,0,0.2)' }}>
+                  <div
+                    style={{
+                      height: '100%',
+                      borderRadius: 999,
+                      background: 'linear-gradient(90deg, #15803d, #22c55e)',
+                      width: `${Math.max(3, ((imported + updated + skipped + failed) / parsed.length) * 100)}%`,
+                      transition: 'width 0.4s ease',
+                      boxShadow: '0 0 8px rgba(34,197,94,0.5)',
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="font-body font-bold" style={{ fontSize: 14, color: '#22c55e' }}>
+                    {imported + updated + skipped + failed} / {parsed.length}
+                  </p>
+                  <p className="font-body" style={{ fontSize: 12, color: 'var(--fg-color)', opacity: 0.9 }}>
+                    {imported > 0 && <span style={{ color: '#22c55e' }}>{imported} added · </span>}
+                    {updated > 0 && <span style={{ color: '#60a5fa' }}>{updated} updated · </span>}
+                    {skipped > 0 && <span style={{ color: '#fbbf24' }}>{skipped} unchanged · </span>}
+                    {failed > 0 && <span style={{ color: '#f87171' }}>{failed} failed</span>}
+                    {imported + updated + skipped + failed === 0 && <span>Processing...</span>}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {error && (
-            <div className="flex items-start gap-2 mt-3 p-3 rounded-xl" style={{ background: 'rgba(185,28,28,0.1)', border: '1px solid rgba(185,28,28,0.2)' }}>
-              <AlertTriangle size={16} color="#b91c1c" className="flex-shrink-0 mt-0.5" />
-              <span className="font-body" style={{ fontSize: 12, color: '#b91c1c', wordBreak: 'break-word' }}>{error}</span>
-            </div>
-          )}
-
-          {/* Smart Sync toggle */}
-          {parsed.length > 0 && duplicateCount > 0 && (
-            <div
-              className="flex items-center gap-3 mt-3 p-3 rounded-xl cursor-pointer select-none"
-              style={{ background: updateMode ? 'rgba(21,128,61,0.08)' : 'var(--input-bg)', border: `1px solid ${updateMode ? 'rgba(21,128,61,0.25)' : 'var(--card-border)'}`, transition: 'all 0.2s' }}
-              onClick={() => setUpdateMode(m => !m)}
-            >
-              {/* Toggle pill */}
-              <div
-                className="relative flex-shrink-0 rounded-full transition-all"
-                style={{ width: 36, height: 20, background: updateMode ? '#15803d' : 'var(--card-border)', transition: 'background 0.2s' }}
-              >
-                <div
-                  className="absolute top-1 rounded-full bg-white transition-all"
-                  style={{ width: 12, height: 12, left: updateMode ? 20 : 4, transition: 'left 0.2s' }}
-                />
-              </div>
-              <div>
-                <p className="font-body font-semibold" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
-                  Smart Sync & Merge
-                </p>
-                <p className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                  {updateMode
-                    ? `Automatically detects changes and updates existing items. New items will be added.`
-                    : `Only add new items. Existing items will be skipped.`}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Preview table */}
-          {parsed.length > 0 && (
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-body font-semibold" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
-                  Preview — {newItems.length} new
-                  {duplicateCount > 0 && (
-                    <span style={{ color: updateMode ? '#0d1b6e' : '#d97706' }}>
-                      {' · '}{duplicateCount} {updateMode ? 'will update' : 'will skip'}
-                    </span>
-                  )}
+          {/* Sticky Actions Footer — Always pinned at bottom */}
+          <div className="flex items-center justify-between gap-2 pt-3 border-t border-[var(--card-border)] shrink-0 bg-[var(--card-bg)]">
+            <div className="text-xs font-body" style={{ color: 'var(--muted-text)' }}>
+              {parsed.length > 0 && (
+                <span>
+                  Ready to process: <strong style={{ color: 'var(--fg-color)' }}>{totalToProcess}</strong> item{totalToProcess !== 1 ? 's' : ''}
                 </span>
-                <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                  Showing first {Math.min(parsed.length, 8)}
-                </span>
-              </div>
-              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 220, overflowY: 'auto' }}>
-                <table className="w-full" style={{ fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--table-header-bg)' }}>
-                      {['Name', 'Category', 'Unit', 'Qty', 'Threshold', 'Location'].map(h => (
-                        <th key={h} className="text-left px-3 py-2 font-body uppercase" style={{ fontSize: 10, color: 'var(--muted-text)', fontWeight: 500 }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parsed.slice(0, 8).map((row, idx) => (
-                      <tr key={idx} style={{
-                        borderBottom: '1px solid var(--card-border)',
-                        opacity: row.isDuplicate && !updateMode ? 0.45 : 1,
-                        background: row.isDuplicate
-                          ? updateMode ? 'rgba(13,27,110,0.06)' : 'rgba(217,119,6,0.08)'
-                          : undefined,
-                      }}>
-                        <td className="px-3 py-1.5 font-body font-semibold" style={{ color: 'var(--fg-color)' }}>
-                          {row.name}
-                          {row.isDuplicate && (
-                            <span
-                              className="font-body ml-1.5 px-1.5 py-0.5 rounded"
-                              style={{
-                                fontSize: 9,
-                                background: updateMode ? 'rgba(13,27,110,0.15)' : 'rgba(217,119,6,0.15)',
-                                color: updateMode ? '#0d1b6e' : '#d97706',
-                              }}
-                            >
-                              {updateMode ? 'will update' : 'skip'}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <span className="font-body font-semibold px-1.5 py-0.5 rounded text-white" style={{ fontSize: 10, background: getCategoryColor(row.category) }}>
-                            {row.category}
-                          </span>
-                        </td>
-                        <td className="px-3 py-1.5 font-body" style={{ color: 'var(--muted-text)' }}>{row.unit}</td>
-                        <td className="px-3 py-1.5 font-body font-bold" style={{ color: 'var(--fg-color)' }}>{row.quantity}</td>
-                        <td className="px-3 py-1.5 font-body" style={{ color: 'var(--muted-text)' }}>{row.lowStockThreshold}</td>
-                        <td className="px-3 py-1.5 font-body" style={{ color: row.location ? '#0d1b6e' : 'var(--muted-text)', fontStyle: row.location ? 'normal' : 'italic' }}>
-                          {row.location || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                    {parsed.length > 8 && (
-                      <tr>
-                        <td colSpan={6} className="text-center py-2 font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                          ...and {parsed.length - 8} more
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              )}
             </div>
-          )}
-
-          {/* Import progress */}
-          {importing && (
-            <div className="mt-4 p-4 rounded-xl" style={{ background: 'var(--input-bg)', border: '1px solid var(--card-border)' }}>
-              {/* Animated bar */}
-              <div className="w-full rounded-full overflow-hidden" style={{ height: 10, background: 'rgba(0,0,0,0.2)' }}>
-                <div
-                  style={{
-                    height: '100%',
-                    borderRadius: 999,
-                    background: 'linear-gradient(90deg, #15803d, #22c55e)',
-                    width: `${Math.max(3, ((imported + updated + skipped + failed) / parsed.length) * 100)}%`,
-                    transition: 'width 0.4s ease',
-                    boxShadow: '0 0 8px rgba(34,197,94,0.5)',
-                  }}
-                />
-              </div>
-              {/* Counter */}
-              <div className="flex items-center justify-between mt-2">
-                <p className="font-body font-bold" style={{ fontSize: 14, color: '#22c55e' }}>
-                  {imported + updated + skipped + failed} / {parsed.length}
-                </p>
-                <p className="font-body" style={{ fontSize: 12, color: 'var(--fg-color)', opacity: 0.9 }}>
-                  {imported > 0 && <span style={{ color: '#22c55e' }}>{imported} added · </span>}
-                  {updated > 0 && <span style={{ color: '#60a5fa' }}>{updated} updated · </span>}
-                  {skipped > 0 && <span style={{ color: '#fbbf24' }}>{skipped} unchanged · </span>}
-                  {failed > 0 && <span style={{ color: '#f87171' }}>{failed} failed</span>}
-                  {imported + updated + skipped + failed === 0 && <span>Processing...</span>}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2 mt-5">
-            <button className="modal-btn-cancel" onClick={onClose}>Cancel</button>
-            {parsed.length > 0 && !importing && totalToProcess > 0 && (
-              <button
-                onClick={handleImport}
-                className="px-4 py-2 rounded-xl font-body font-semibold transition-all hover:opacity-90"
-                style={{ fontSize: 14, background: '#15803d', color: 'white', border: 'none', cursor: 'pointer' }}
-              >
-                {importing ? (
-                  <><Loader2 size={16} className="animate-spin" /> Processing...</>
-                ) : updateMode ? (
-                  `Apply to ${totalToProcess} Item${totalToProcess !== 1 ? 's' : ''}`
-                ) : (
-                  `Import ${newItems.length} New Item${newItems.length !== 1 ? 's' : ''}`
-                )}
+            <div className="flex items-center gap-2">
+              <button className="modal-btn-cancel" onClick={onClose} disabled={importing}>
+                Cancel
               </button>
-            )}
+              {parsed.length > 0 && (
+                <button
+                  onClick={handleImport}
+                  disabled={importing || totalToProcess === 0}
+                  className="px-4 py-2 rounded-xl font-body font-semibold transition-all hover:opacity-90 flex items-center gap-2"
+                  style={{
+                    fontSize: 14,
+                    background: totalToProcess === 0 ? 'var(--card-border)' : '#15803d',
+                    color: 'white',
+                    border: 'none',
+                    cursor: (importing || totalToProcess === 0) ? 'not-allowed' : 'pointer',
+                    opacity: totalToProcess === 0 ? 0.6 : 1,
+                  }}
+                >
+                  {importing ? (
+                    <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                  ) : updateMode ? (
+                    `Import & Route ${totalToProcess} Item${totalToProcess !== 1 ? 's' : ''}`
+                  ) : (
+                    `Import ${newItems.length} New Item${newItems.length !== 1 ? 's' : ''}`
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </>
       ) : (
         /* Success screen */
-        <div className="flex flex-col items-center py-4 gap-3 w-full">
-          <CheckCircle size={52} color="#22c55e" />
+        <div className="flex flex-col items-center py-2 gap-3 w-full flex-1 overflow-y-auto min-h-0">
+          <CheckCircle size={48} color="#22c55e" />
           <h4 className="font-heading font-bold" style={{ fontSize: 20, color: 'var(--heading-color)' }}>
-            Sync Complete!
+            Import &amp; Categorization Complete!
           </h4>
+          <p className="font-body text-xs text-slate-500 dark:text-slate-400">
+            Items have been routed to their respective categories.
+          </p>
+
           {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-3 w-full mt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full mt-1">
             {imported > 0 && (
               <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
-                <p className="font-heading font-black" style={{ fontSize: 28, color: '#22c55e' }}>{imported}</p>
-                <p className="font-body font-semibold" style={{ fontSize: 12, color: '#22c55e' }}>New Items Added</p>
+                <p className="font-heading font-black" style={{ fontSize: 24, color: '#22c55e' }}>{imported}</p>
+                <p className="font-body font-semibold" style={{ fontSize: 11, color: '#22c55e' }}>Added</p>
               </div>
             )}
             {updated > 0 && (
               <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)' }}>
-                <p className="font-heading font-black" style={{ fontSize: 28, color: '#60a5fa' }}>{updated}</p>
-                <p className="font-body font-semibold" style={{ fontSize: 12, color: '#60a5fa' }}>Items Updated</p>
+                <p className="font-heading font-black" style={{ fontSize: 24, color: '#60a5fa' }}>{updated}</p>
+                <p className="font-body font-semibold" style={{ fontSize: 11, color: '#60a5fa' }}>Updated</p>
               </div>
             )}
             {skipped > 0 && (
               <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.25)' }}>
-                <p className="font-heading font-black" style={{ fontSize: 28, color: '#fbbf24' }}>{skipped}</p>
-                <p className="font-body font-semibold" style={{ fontSize: 12, color: '#fbbf24' }}>Unchanged</p>
+                <p className="font-heading font-black" style={{ fontSize: 24, color: '#fbbf24' }}>{skipped}</p>
+                <p className="font-body font-semibold" style={{ fontSize: 11, color: '#fbbf24' }}>Unchanged</p>
               </div>
             )}
             {failed > 0 && (
               <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)' }}>
-                <p className="font-heading font-black" style={{ fontSize: 28, color: '#f87171' }}>{failed}</p>
-                <p className="font-body font-semibold" style={{ fontSize: 12, color: '#f87171' }}>Failed</p>
+                <p className="font-heading font-black" style={{ fontSize: 24, color: '#f87171' }}>{failed}</p>
+                <p className="font-body font-semibold" style={{ fontSize: 11, color: '#f87171' }}>Failed</p>
               </div>
             )}
           </div>
@@ -696,24 +1004,17 @@ export default function CSVImportModal({ onClose }: Props) {
           {(changedItems.length > 0 || addedItems.length > 0) && (
             <div className="w-full mt-1">
               <p className="font-body font-semibold mb-2" style={{ fontSize: 12, color: 'var(--muted-text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                What Changed
+                Processed Items &amp; Categories
               </p>
-              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 200, overflowY: 'auto' }}>
-                {/* Updated items with qty change */}
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 180, overflowY: 'auto' }}>
                 {changedItems.map((item, i) => (
                   <div key={`upd-${i}`} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--card-border)', background: i % 2 === 0 ? 'var(--input-bg)' : 'transparent' }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span
-                        className="px-2 py-0.5 rounded font-body font-bold"
-                        style={{
-                          fontSize: 9,
-                          background: item.diff > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(248,113,113,0.15)',
-                          color: item.diff > 0 ? '#22c55e' : '#f87171',
-                          flexShrink: 0,
-                          letterSpacing: '0.04em',
-                        }}
+                        className="px-2 py-0.5 rounded font-body font-bold text-white"
+                        style={{ fontSize: 9, background: getCategoryColor(item.category), flexShrink: 0 }}
                       >
-                        {item.diff > 0 ? 'Restocked' : 'Reduced'}
+                        {getCategoryLabel(item.category)}
                       </span>
                       <span className="font-body font-semibold truncate" style={{ fontSize: 12, color: 'var(--fg-color)' }}>{item.name}</span>
                     </div>
@@ -731,11 +1032,15 @@ export default function CSVImportModal({ onClose }: Props) {
                     </div>
                   </div>
                 ))}
-                {/* New items */}
                 {addedItems.map((item, i) => (
                   <div key={`add-${i}`} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--card-border)', background: (changedItems.length + i) % 2 === 0 ? 'var(--input-bg)' : 'transparent' }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="px-2 py-0.5 rounded font-body font-bold" style={{ fontSize: 9, background: 'rgba(34,197,94,0.15)', color: '#22c55e', flexShrink: 0, letterSpacing: '0.04em' }}>Added</span>
+                      <span
+                        className="px-2 py-0.5 rounded font-body font-bold text-white"
+                        style={{ fontSize: 9, background: getCategoryColor(item.category), flexShrink: 0 }}
+                      >
+                        {getCategoryLabel(item.category)}
+                      </span>
                       <span className="font-body font-semibold truncate" style={{ fontSize: 12, color: 'var(--fg-color)' }}>{item.name}</span>
                     </div>
                     <span className="font-body font-bold" style={{ fontSize: 12, color: '#22c55e' }}>+{item.qty}</span>
@@ -745,13 +1050,15 @@ export default function CSVImportModal({ onClose }: Props) {
             </div>
           )}
 
-          <button
-            onClick={onClose}
-            className="px-8 py-2.5 rounded-xl font-body font-bold mt-2 w-full"
-            style={{ fontSize: 14, background: '#15803d', color: 'white', border: 'none', cursor: 'pointer' }}
-          >
-            Done
-          </button>
+          <div className="pt-2 border-t border-[var(--card-border)] w-full shrink-0">
+            <button
+              onClick={onClose}
+              className="px-8 py-2.5 rounded-xl font-body font-bold w-full"
+              style={{ fontSize: 14, background: '#15803d', color: 'white', border: 'none', cursor: 'pointer' }}
+            >
+              Done
+            </button>
+          </div>
         </div>
       )}
     </ModalOverlay>
