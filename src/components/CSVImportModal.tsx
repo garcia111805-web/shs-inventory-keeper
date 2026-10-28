@@ -824,7 +824,7 @@ export default function CSVImportModal({ onClose }: Props) {
                   <table className="w-full" style={{ fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: 'var(--table-header-bg)' }}>
-                        {['Name', 'Assigned Category', 'Unit', 'Qty', 'Threshold', 'Location'].map(h => (
+                        {['Name', 'Assigned Category', 'Unit', 'Qty', 'Threshold', 'Location', 'Type'].map(h => (
                           <th key={h} className="text-left px-3 py-2 font-body uppercase" style={{ fontSize: 10, color: 'var(--muted-text)', fontWeight: 500 }}>{h}</th>
                         ))}
                       </tr>
@@ -877,11 +877,23 @@ export default function CSVImportModal({ onClose }: Props) {
                           <td className="px-3 py-1.5 font-body" style={{ color: row.location ? '#0d1b6e' : 'var(--muted-text)', fontStyle: row.location ? 'normal' : 'italic' }}>
                             {row.location || '—'}
                           </td>
+                          <td className="px-3 py-1.5">
+                            <button
+                              onClick={() => {
+                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item));
+                              }}
+                              className="font-body font-bold px-2 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer shadow-sm transition-all"
+                              style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }}
+                              title={row.isConsumable ? 'Consumable Supply — click to make Asset/Equipment' : 'Asset/Equipment — click to make Consumable'}
+                            >
+                              {row.isConsumable ? 'Consumable' : 'Asset'}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                       {parsed.length > 12 && (
                         <tr>
-                          <td colSpan={6} className="text-center py-2 font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
+                          <td colSpan={7} className="text-center py-2 font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
                             ...and {parsed.length - 12} more items correctly categorized
                           </td>
                         </tr>
