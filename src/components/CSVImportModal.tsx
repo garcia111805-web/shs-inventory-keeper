@@ -9,6 +9,7 @@ import ModalOverlay from './ModalOverlay';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatItemName, guessConsumable } from '../lib/utils';
 import { initialItems } from '../data/initialItems';
+import * as XLSX from 'xlsx';
 
 interface Props {
   onClose: () => void;
