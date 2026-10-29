@@ -439,15 +439,14 @@ function UserManagementSection() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Access Role</label>
-            <ModernSelect
-              label="Select Role"
+            <select
               value={role}
-              onChange={(v) => setRole(v as UserRole)}
-              options={[
-                { value: 'borrower', label: 'Staff Member' },
-                { value: 'admin', label: 'System Admin' },
-              ]}
-            />
+              onChange={(e) => setRole(e.target.value as UserRole)}
+              className="modal-input w-full"
+            >
+              <option value="borrower">Staff Member</option>
+              <option value="admin">System Admin</option>
+            </select>
           </div>
           {role === 'admin' && (
             <div className="space-y-1.5 animate-in slide-in-from-right-4 duration-300">
