@@ -648,13 +648,13 @@ export default function CSVImportModal({ onClose }: Props) {
                 <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 260, overflowY: 'auto' }}>
                   <table className="w-full" style={{ fontSize: 11, tableLayout: 'fixed' }}>
                     <colgroup>
-                      <col style={{ width: '28%' }} />
+                      <col style={{ width: '26%' }} />
                       <col style={{ width: '16%' }} />
                       <col style={{ width: '12%' }} />
                       <col style={{ width: '10%' }} />
                       <col style={{ width: '12%' }} />
                       <col style={{ width: '14%' }} />
-                      <col style={{ width: '8%' }} />
+                      <col style={{ width: '10%' }} />
                     </colgroup>
                     <thead>
                       <tr style={{ background: 'var(--table-header-bg)' }}>
