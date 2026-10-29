@@ -182,7 +182,7 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 }
 
 export default function CSVImportModal({ onClose }: Props) {
-  const { items, addItem, updateItem, showToast } = useInventory();
+  const { items, addItem, updateItem, wipeAllItems, showToast } = useInventory();
   const { user } = useAuth();
   const { categories: dbCategories, addCategory } = useCategories();
   const { locations, loading: locationsLoading } = useLocations();
@@ -195,6 +195,8 @@ export default function CSVImportModal({ onClose }: Props) {
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState(0);
   const [done, setDone] = useState(false);
+  const [wiping, setWiping] = useState(false);
+  const [showWipeConfirm, setShowWipeConfirm] = useState(false);
 
   const availableCategoryNames = useMemo(() => {
     const list = ['cleaning', 'office', 'clinic'];
@@ -567,9 +569,62 @@ export default function CSVImportModal({ onClose }: Props) {
                   </p>
                 </div>
               </div>
+            ) : !showWipeConfirm ? (
+              <div
+                className="rounded-xl p-3 flex items-center justify-between gap-3"
+                style={{ background: 'rgba(185,28,28,0.06)', border: '1px solid rgba(185,28,28,0.2)' }}
+              >
+                <div>
+                  <p className="font-body font-semibold text-xs" style={{ color: '#b91c1c' }}>
+                    Inventory has {items.length} item{items.length === 1 ? '' : 's'}
+                  </p>
+                  <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
+                    Clear all current inventory before importing a new file.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowWipeConfirm(true)}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-body font-semibold transition-all hover:opacity-85 text-xs text-white"
+                  style={{ background: '#b91c1c', border: 'none', cursor: 'pointer' }}
+                >
+                  Clear All Inventory
+                </button>
+              </div>
             ) : (
-              <div className="rounded-xl p-3" style={{ background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.2)' }}>
-                <p className="font-body text-xs" style={{ color: '#15803d' }}>Upload your inventory file to begin.</p>
+              <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: 'rgba(185,28,28,0.06)', border: '1px solid rgba(185,28,28,0.2)' }}>
+                <p className="font-body font-semibold text-xs" style={{ color: '#b91c1c' }}>
+                  ⚠️ This will delete all {items.length} items and transactions. Cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    disabled={wiping}
+                    onClick={async () => {
+                      setWiping(true);
+                      try {
+                        await wipeAllItems();
+                        setParsed([]);
+                        setFileName('');
+                        showToast('✅ All inventory cleared.', 'success');
+                        setShowWipeConfirm(false);
+                      } catch {
+                        showToast('Failed to clear inventory.', 'error');
+                      } finally {
+                        setWiping(false);
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-body font-semibold text-xs text-white"
+                    style={{ background: '#b91c1c', border: 'none', cursor: wiping ? 'not-allowed' : 'pointer', opacity: wiping ? 0.6 : 1 }}
+                  >
+                    {wiping ? <Loader2 size={13} className="animate-spin" /> : '✓'} Yes, Clear Everything
+                  </button>
+                  <button
+                    onClick={() => setShowWipeConfirm(false)}
+                    className="px-3 py-1.5 rounded-lg font-body font-semibold text-xs hover:opacity-80"
+                    style={{ background: 'var(--input-bg)', color: 'var(--fg-color)', border: '1px solid var(--card-border)', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
 
@@ -645,11 +700,11 @@ export default function CSVImportModal({ onClose }: Props) {
                 style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)' }}
               >
                 <p className="font-body text-xs font-semibold" style={{ color: '#d97706' }}>
-                  New items will be added. Duplicates will be skipped.
+                  New items will be added. Existing items will be updated.
                 </p>
                 <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
                   {duplicateCount > 0
-                    ? `${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} detected and will be skipped.`
+                    ? `${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} detected and will be updated.`
                     : 'No duplicates detected.'}
                 </p>
               </div>
