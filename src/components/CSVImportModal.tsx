@@ -3,6 +3,8 @@ import { useInventory } from '../context/InventoryContext';
 import { useImportSettings } from '../hooks/useImportSettings';
 import { useAuth } from '../context/AuthContext';
 import { useCategories } from '../hooks/useCategories';
+import { useLocations } from '../hooks/useLocations';
+import { useUnits } from '../hooks/useUnits';
 import { Category, getCategoryColor, getCategoryLabel } from '../types';
 import ModalOverlay from './ModalOverlay';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
@@ -184,6 +186,8 @@ export default function CSVImportModal({ onClose }: Props) {
   const { items, addItem, updateItem, addTransaction, showToast, wipeAllItems } = useInventory();
   const { user } = useAuth();
   const { categories: dbCategories, addCategory } = useCategories();
+  const { locations, loading: locationsLoading } = useLocations();
+  const { units, loading: unitsLoading } = useUnits();
   const { settings: importSettings } = useImportSettings();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -247,15 +251,16 @@ export default function CSVImportModal({ onClose }: Props) {
           const formattedName = formatItemName(rawName);
           const nameLower = formattedName.toLowerCase();
           const isDuplicate = existingNames.has(nameLower);
+          const existing = isDuplicate ? items.find(i => i.name.toLowerCase().trim() === nameLower) : undefined;
 
           parsedItems.push({
             name: formattedName,
             category: sec.cat,
             unit: 'PCS',
-            quantity: Math.max(0, parseInt(qtyVal) || 0),
-            lowStockThreshold: 3,
+            quantity: Math.max(0, parseInt(qtyVal) || (existing?.quantity ?? 0)),
+            lowStockThreshold: existing?.lowStockThreshold ?? 3,
             notes: '',
-            location: undefined,
+            location: existing?.location,
             isConsumable: guessConsumable(formattedName),
             isDuplicate
           });
@@ -317,6 +322,10 @@ export default function CSVImportModal({ onClose }: Props) {
       const isDuplicate = existingNames.has(nameLower);
       existingNames.add(nameLower);
 
+      const existing = isDuplicate
+        ? items.find(i => i.name.toLowerCase().trim() === nameLower)
+        : undefined;
+
       const consRaw = consIdx >= 0 ? row[consIdx]?.toLowerCase() || '' : '';
       const explicitNonConsumable = consRaw.includes('asset') || consRaw.includes('non') || consRaw === 'false' || consRaw === 'no';
       const isConsumable = consIdx >= 0 ? !explicitNonConsumable : guessConsumable(formattedName);
@@ -329,9 +338,11 @@ export default function CSVImportModal({ onClose }: Props) {
         category: detectedCat,
         unit: unitIdx >= 0 ? (row[unitIdx]?.trim().toUpperCase() || 'PCS') : 'PCS',
         quantity: qtyIdx >= 0 ? Math.max(0, parseInt(row[qtyIdx]) || 0) : 0,
-        lowStockThreshold: threshIdx >= 0 ? Math.max(0, parseInt(row[threshIdx]) || 3) : 3,
+        lowStockThreshold: threshIdx >= 0
+          ? Math.max(0, parseInt(row[threshIdx]) || (existing?.lowStockThreshold ?? 3))
+          : existing?.lowStockThreshold ?? 3,
         notes: notesIdx >= 0 ? (row[notesIdx]?.trim() || '') : '',
-        location: locIdx >= 0 ? (row[locIdx]?.trim().toUpperCase() || undefined) : undefined,
+        location: locIdx >= 0 ? (row[locIdx]?.trim().toUpperCase() || undefined) : existing?.location ?? undefined,
         isConsumable,
         isDuplicate,
       });
@@ -871,11 +882,64 @@ export default function CSVImportModal({ onClose }: Props) {
                               ))}
                             </select>
                           </td>
-                          <td className="px-3 py-1.5 font-body" style={{ color: 'var(--muted-text)' }}>{row.unit}</td>
-                          <td className="px-3 py-1.5 font-body font-bold" style={{ color: 'var(--fg-color)' }}>{row.quantity}</td>
-                          <td className="px-3 py-1.5 font-body" style={{ color: 'var(--muted-text)' }}>{row.lowStockThreshold}</td>
-                          <td className="px-3 py-1.5 font-body" style={{ color: row.location ? '#0d1b6e' : 'var(--muted-text)', fontStyle: row.location ? 'normal' : 'italic' }}>
-                            {row.location || '—'}
+                          <td className="px-3 py-1.5">
+                            <select
+                              value={row.unit}
+                              onChange={(e) => {
+                                const newUnit = e.target.value.toUpperCase();
+                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, unit: newUnit } : item));
+                              }}
+                              className="font-body text-[11px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white"
+                              disabled={unitsLoading}
+                            >
+                              {units.map(u => (
+                                <option key={u.id} value={u.name.toUpperCase()} style={{ background: '#1e293b', color: 'white' }}>
+                                  {u.name.toUpperCase()}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              value={row.quantity}
+                              onChange={(e) => {
+                                const newQty = Math.max(0, parseInt(e.target.value) || 0);
+                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, quantity: newQty } : item));
+                              }}
+                              className="w-16 font-body font-bold text-[11px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none"
+                            />
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              value={row.lowStockThreshold}
+                              onChange={(e) => {
+                                const newThresh = Math.max(0, parseInt(e.target.value) || 0);
+                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, lowStockThreshold: newThresh } : item));
+                              }}
+                              className="w-14 font-body text-[11px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none"
+                            />
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <select
+                              value={row.location || ''}
+                              onChange={(e) => {
+                                const newLoc = e.target.value || undefined;
+                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, location: newLoc } : item));
+                              }}
+                              className="font-body text-[11px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white"
+                              disabled={locationsLoading}
+                            >
+                              <option value="">— None —</option>
+                              {locations.map(loc => (
+                                <option key={loc.id} value={loc.name} style={{ background: '#1e293b', color: 'white' }}>
+                                  {loc.name}
+                                </option>
+                              ))}
+                            </select>
                           </td>
                           <td className="px-3 py-1.5">
                             <button
