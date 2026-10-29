@@ -1,16 +1,15 @@
 import { useState, useRef, useMemo } from 'react';
 import { useInventory } from '../context/InventoryContext';
-import { useImportSettings } from '../hooks/useImportSettings';
 import { useAuth } from '../context/AuthContext';
 import { useCategories } from '../hooks/useCategories';
 import { useLocations } from '../hooks/useLocations';
 import { useUnits } from '../hooks/useUnits';
 import { Category, getCategoryColor, getCategoryLabel } from '../types';
 import ModalOverlay from './ModalOverlay';
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatItemName, guessConsumable } from '../lib/utils';
 import { initialItems } from '../data/initialItems';
+import * as XLSX from 'xlsx';
 
 interface Props {
   onClose: () => void;
@@ -183,12 +182,11 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 }
 
 export default function CSVImportModal({ onClose }: Props) {
-  const { items, addItem, updateItem, addTransaction, showToast, wipeAllItems } = useInventory();
+  const { items, addItem, showToast } = useInventory();
   const { user } = useAuth();
   const { categories: dbCategories, addCategory } = useCategories();
   const { locations, loading: locationsLoading } = useLocations();
   const { units, loading: unitsLoading } = useUnits();
-  const { settings: importSettings } = useImportSettings();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [parsed, setParsed] = useState<ParsedRow[]>([]);
@@ -196,15 +194,8 @@ export default function CSVImportModal({ onClose }: Props) {
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState(0);
-  const [updated, setUpdated] = useState(0);
-  const [skipped, setSkipped] = useState(0);
-  const [failed, setFailed] = useState(0);
+      const [failed, setFailed] = useState(0);
   const [done, setDone] = useState(false);
-  const [updateMode, setUpdateMode] = useState(true);
-  const [changedItems, setChangedItems] = useState<{ name: string; oldQty: number; newQty: number; diff: number; category: string }[]>([]);
-  const [addedItems, setAddedItems] = useState<{ name: string; qty: number; category: string }[]>([]);
-  const [wiping, setWiping] = useState(false);
-  const [confirmWipe, setConfirmWipe] = useState(false);
 
   const availableCategoryNames = useMemo(() => {
     const list = ['cleaning', 'office', 'clinic'];
@@ -327,11 +318,11 @@ export default function CSVImportModal({ onClose }: Props) {
         : undefined;
 
       const consRaw = consIdx >= 0 ? row[consIdx]?.toLowerCase() || '' : '';
-      const explicitNonConsumable = consRaw.includes('asset') || consRaw.includes('non') || consRaw === 'false' || consRaw === 'no';
+      const explicitNonConsumable = consRaw.includes('non') || consRaw.includes('no') || consRaw === 'false' || consRaw === '0';
       const isConsumable = consIdx >= 0 ? !explicitNonConsumable : guessConsumable(formattedName);
 
       const rawCat = catIdx >= 0 ? row[catIdx] : undefined;
-      const detectedCat = resolveCategory(rawCat, formattedName, sheetHint, items, availableCategoryNames, importSettings.fallbackCategory);
+      const detectedCat = resolveCategory(rawCat, formattedName, sheetHint, items, availableCategoryNames, "office");
 
       result.push({
         name: formattedName,
@@ -475,23 +466,14 @@ export default function CSVImportModal({ onClose }: Props) {
 
   const newItems = parsed.filter(r => !r.isDuplicate);
   const duplicateCount = parsed.filter(r => r.isDuplicate).length;
-  const totalToProcess = updateMode ? parsed.length : newItems.length;
+  const totalToProcess = parsed.length;
 
   const handleImport = async () => {
     setImporting(true);
     setImported(0);
-    setUpdated(0);
-    setSkipped(0);
     setFailed(0);
-    setChangedItems([]);
-    setAddedItems([]);
-
     let successCount = 0;
-    let updateCount = 0;
-    let skipCount = 0;
     let failCount = 0;
-    const changedLog: { name: string; oldQty: number; newQty: number; diff: number; category: string }[] = [];
-    const addedLog: { name: string; qty: number; category: string }[] = [];
 
     // Register any new categories if found in parsed items
     for (const row of parsed) {
@@ -504,72 +486,6 @@ export default function CSVImportModal({ onClose }: Props) {
     }
 
     for (const row of parsed) {
-      if (row.isDuplicate) {
-        if (updateMode) {
-          // Find the existing item by name (case-insensitive)
-          const existing = items.find(
-            i => i.name.toLowerCase().trim() === row.name.toLowerCase().trim()
-          );
-          if (existing) {
-            // Smart Check: Only update if something actually changed
-            const hasChanged =
-              existing.category !== row.category ||
-              existing.unit !== row.unit ||
-              existing.quantity !== row.quantity ||
-              existing.location !== (row.location || undefined) ||
-              existing.isConsumable !== row.isConsumable ||
-              (row.notes && existing.notes !== row.notes);
-
-            if (!hasChanged) {
-              skipCount++;
-              setSkipped(skipCount);
-              continue;
-            }
-
-            try {
-              await updateItem({
-                ...existing,
-                name: row.name,
-                category: row.category,
-                unit: row.unit,
-                quantity: row.quantity,
-                lowStockThreshold: row.lowStockThreshold,
-                notes: row.notes || existing.notes,
-                location: row.location || existing.location,
-                isConsumable: row.isConsumable,
-              });
-
-              const qtyDiff = row.quantity - existing.quantity;
-              if (qtyDiff !== 0) {
-                changedLog.push({ name: row.name, oldQty: existing.quantity, newQty: row.quantity, diff: qtyDiff, category: row.category });
-                setChangedItems([...changedLog]);
-                try {
-                  await addTransaction({
-                    itemId: existing.id,
-                    itemName: row.name,
-                    category: row.category,
-                    type: qtyDiff > 0 ? 'restock' : 'use',
-                    qtyChange: qtyDiff,
-                    newStock: row.quantity,
-                    by: user?.fullName || 'System',
-                    notes: `Data Import / Smart Sync`,
-                    date: new Date().toISOString(),
-                  });
-                } catch { /* non-blocking */ }
-              }
-              updateCount++;
-              setUpdated(updateCount);
-            } catch {
-              failCount++;
-              setFailed(failCount);
-            }
-          }
-        } else {
-          skipCount++;
-          setSkipped(skipCount);
-        }
-        continue;
-      }
       try {
         await addItem({
           name: row.name,
@@ -581,8 +497,6 @@ export default function CSVImportModal({ onClose }: Props) {
           location: row.location || undefined,
           isConsumable: row.isConsumable,
         });
-        addedLog.push({ name: row.name, qty: row.quantity, category: row.category });
-        setAddedItems([...addedLog]);
         successCount++;
         setImported(successCount);
       } catch {
@@ -590,15 +504,10 @@ export default function CSVImportModal({ onClose }: Props) {
         setFailed(failCount);
       }
     }
-
     setImporting(false);
     setDone(true);
-    const parts: string[] = [];
-    if (successCount > 0) parts.push(`${successCount} added`);
-    if (updateCount > 0) parts.push(`${updateCount} updated`);
-    if (skipCount > 0) parts.push(`${skipCount} skipped`);
-    if (failCount > 0) parts.push(`${failCount} failed`);
-    showToast(parts.join(' · ') || 'Nothing to import', failCount > 0 ? 'warning' : 'success');
+    const msg = `${successCount} imported${failCount > 0 ? ` · ${failCount} failed` : ''}`;
+    showToast(msg, failCount > 0 ? 'warning' : 'success');
   };
 
   return (
@@ -622,88 +531,7 @@ export default function CSVImportModal({ onClose }: Props) {
         <>
           {/* Scrollable Body Content */}
           <div className="flex-1 overflow-y-auto min-h-0 py-3 pr-1 space-y-3">
-            {/* ── Fresh Start / Wipe Section ── */}
-            {items.length === 0 ? (
-              <div
-                className="rounded-xl p-3 flex items-center gap-2.5"
-                style={{ background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.2)' }}
-              >
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(21,128,61,0.15)', color: '#15803d' }}>
-                  <CheckCircle size={16} />
-                </div>
-                <div>
-                  <p className="font-body font-semibold text-xs" style={{ color: '#15803d' }}>
-                    Inventory Is Clear &amp; Fresh
-                  </p>
-                  <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
-                    Your inventory is empty. All imported items will be added as new records.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div
-                className="rounded-xl p-3"
-                style={{ background: 'rgba(185,28,28,0.06)', border: '1px solid rgba(185,28,28,0.2)' }}
-              >
-                {!confirmWipe ? (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div>
-                      <p className="font-body font-semibold text-xs" style={{ color: '#b91c1c' }}>
-                        🗑️ Fresh Start ({items.length} existing items)
-                      </p>
-                      <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
-                        Permanently wipe existing items and transactions before importing to replace everything completely.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setConfirmWipe(true)}
-                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-body font-semibold transition-all hover:opacity-85 text-xs text-white"
-                      style={{ background: '#b91c1c', border: 'none', cursor: 'pointer' }}
-                    >
-                      Clear All &amp; Start Fresh
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <p className="font-body font-semibold text-xs" style={{ color: '#b91c1c' }}>
-                      ⚠️ Are you sure? This will delete all {items.length} items and transactions. This cannot be undone.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        disabled={wiping}
-                        onClick={async () => {
-                          setWiping(true);
-                          try {
-                            await wipeAllItems();
-                            setParsed([]);
-                            setFileName('');
-                            showToast('✅ All items cleared. You can now import your fresh data.', 'success');
-                            setConfirmWipe(false);
-                          } catch {
-                            showToast('Failed to clear items. Please try again.', 'error');
-                          } finally {
-                            setWiping(false);
-                          }
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-body font-semibold text-xs text-white"
-                        style={{ background: '#b91c1c', border: 'none', cursor: wiping ? 'not-allowed' : 'pointer', opacity: wiping ? 0.6 : 1 }}
-                      >
-                        {wiping ? <Loader2 size={13} className="animate-spin" /> : '✓'} Yes, Clear Everything
-                      </button>
-                      <button
-                        onClick={() => setConfirmWipe(false)}
-                        className="px-3 py-1.5 rounded-lg font-body font-semibold text-xs hover:opacity-80"
-                        style={{ background: 'var(--input-bg)', color: 'var(--fg-color)', border: '1px solid var(--card-border)', cursor: 'pointer' }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* File selection / File info */}
+           {/* File selection / File info */}
             {!fileName ? (
               <div
                 onClick={() => fileRef.current?.click()}
@@ -768,32 +596,18 @@ export default function CSVImportModal({ onClose }: Props) {
               </div>
             )}
 
-            {/* Smart Sync toggle */}
-            {parsed.length > 0 && duplicateCount > 0 && (
+            {/* Wipe notice */}
+            {parsed.length > 0 && (
               <div
-                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer select-none"
-                style={{ background: updateMode ? 'rgba(21,128,61,0.08)' : 'var(--input-bg)', border: `1px solid ${updateMode ? 'rgba(21,128,61,0.25)' : 'var(--card-border)'}`, transition: 'all 0.2s' }}
-                onClick={() => setUpdateMode(m => !m)}
+                className="rounded-xl p-3"
+                style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)' }}
               >
-                <div
-                  className="relative flex-shrink-0 rounded-full transition-all"
-                  style={{ width: 36, height: 20, background: updateMode ? '#15803d' : 'var(--card-border)', transition: 'background 0.2s' }}
-                >
-                  <div
-                    className="absolute top-1 rounded-full bg-white transition-all"
-                    style={{ width: 12, height: 12, left: updateMode ? 20 : 4, transition: 'left 0.2s' }}
-                  />
-                </div>
-                <div>
-                  <p className="font-body font-semibold" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
-                    Smart Sync &amp; Merge
-                  </p>
-                  <p className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                    {updateMode
-                      ? `Automatically detects changes and updates existing items. New items will be added.`
-                      : `Only add new items. Existing items will be skipped.`}
-                  </p>
-                </div>
+                <p className="font-body text-xs font-semibold" style={{ color: '#d97706' }}>
+                  This import will clear all current inventory and replace it with this file.
+                </p>
+                <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
+                  Current items and transactions will be cleared before importing.
+                </p>
               </div>
             )}
 
@@ -821,8 +635,8 @@ export default function CSVImportModal({ onClose }: Props) {
                   <span className="font-body font-semibold" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
                     Preview — {newItems.length} new
                     {duplicateCount > 0 && (
-                      <span style={{ color: updateMode ? '#0d1b6e' : '#d97706' }}>
-                        {' · '}{duplicateCount} {updateMode ? 'will update' : 'will skip'}
+                      <span style={{ color: '#0d1b6e' }}>
+                        {' · '}{duplicateCount} will update
                       </span>
                     )}
                   </span>
@@ -831,11 +645,11 @@ export default function CSVImportModal({ onClose }: Props) {
                   </span>
                 </div>
 
-                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 220, overflowY: 'auto' }}>
-                  <table className="w-full" style={{ fontSize: 12 }}>
+                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 260, overflowX: 'auto', overflowY: 'auto' }}>
+                  <table className="w-full" style={{ fontSize: 12, minWidth: 860 }}>
                     <thead>
                       <tr style={{ background: 'var(--table-header-bg)' }}>
-                        {['Name', 'Assigned Category', 'Unit', 'Qty', 'Threshold', 'Location', 'Type'].map(h => (
+                        {['Name', 'Assigned Category', 'Unit', 'Qty', 'Threshold', 'Location', 'Stock Type'].map(h => (
                           <th key={h} className="text-left px-3 py-2 font-body uppercase" style={{ fontSize: 10, color: 'var(--muted-text)', fontWeight: 500 }}>{h}</th>
                         ))}
                       </tr>
@@ -844,23 +658,16 @@ export default function CSVImportModal({ onClose }: Props) {
                       {parsed.slice(0, 12).map((row, idx) => (
                         <tr key={idx} style={{
                           borderBottom: '1px solid var(--card-border)',
-                          opacity: row.isDuplicate && !updateMode ? 0.45 : 1,
-                          background: row.isDuplicate
-                            ? updateMode ? 'rgba(13,27,110,0.06)' : 'rgba(217,119,6,0.08)'
-                            : undefined,
+                          background: row.isDuplicate ? 'rgba(217,119,6,0.08)' : undefined,
                         }}>
                           <td className="px-3 py-1.5 font-body font-semibold" style={{ color: 'var(--fg-color)' }}>
                             {row.name}
                             {row.isDuplicate && (
                               <span
                                 className="font-body ml-1.5 px-1.5 py-0.5 rounded"
-                                style={{
-                                  fontSize: 9,
-                                  background: updateMode ? 'rgba(13,27,110,0.15)' : 'rgba(217,119,6,0.15)',
-                                  color: updateMode ? '#0d1b6e' : '#d97706',
-                                }}
+                                style={{ fontSize: 9, background: 'rgba(217,119,6,0.15)', color: '#d97706' }}
                               >
-                                {updateMode ? 'will update' : 'skip'}
+                                exists
                               </span>
                             )}
                           </td>
@@ -948,9 +755,9 @@ export default function CSVImportModal({ onClose }: Props) {
                               }}
                               className="font-body font-bold px-2 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer shadow-sm transition-all"
                               style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }}
-                              title={row.isConsumable ? 'Consumable Supply — click to make Asset/Equipment' : 'Asset/Equipment — click to make Consumable'}
+                              title={row.isConsumable ? 'Consumable Supply — click to make Non-Consumable' : 'Non-Consumable — click to make Consumable'}
                             >
-                              {row.isConsumable ? 'Consumable' : 'Asset'}
+                              {row.isConsumable ? 'Consumable' : 'Non-Consumable'}
                             </button>
                           </td>
                         </tr>
@@ -977,7 +784,7 @@ export default function CSVImportModal({ onClose }: Props) {
                       height: '100%',
                       borderRadius: 999,
                       background: 'linear-gradient(90deg, #15803d, #22c55e)',
-                      width: `${Math.max(3, ((imported + updated + skipped + failed) / parsed.length) * 100)}%`,
+                      width: `${Math.max(3, (imported / parsed.length) * 100)}%`,
                       transition: 'width 0.4s ease',
                       boxShadow: '0 0 8px rgba(34,197,94,0.5)',
                     }}
@@ -985,14 +792,12 @@ export default function CSVImportModal({ onClose }: Props) {
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <p className="font-body font-bold" style={{ fontSize: 14, color: '#22c55e' }}>
-                    {imported + updated + skipped + failed} / {parsed.length}
+                    {imported} / {parsed.length}
                   </p>
                   <p className="font-body" style={{ fontSize: 12, color: 'var(--fg-color)', opacity: 0.9 }}>
-                    {imported > 0 && <span style={{ color: '#22c55e' }}>{imported} added · </span>}
-                    {updated > 0 && <span style={{ color: '#60a5fa' }}>{updated} updated · </span>}
-                    {skipped > 0 && <span style={{ color: '#fbbf24' }}>{skipped} unchanged · </span>}
-                    {failed > 0 && <span style={{ color: '#f87171' }}>{failed} failed</span>}
-                    {imported + updated + skipped + failed === 0 && <span>Processing...</span>}
+                    {imported > 0 && <span style={{ color: '#22c55e' }}>{imported} imported</span>}
+                    {failed > 0 && <span style={{ color: '#f87171' }}> · {failed} failed</span>}
+                    {imported === 0 && <span>Processing...</span>}
                   </p>
                 </div>
               </div>
@@ -1019,20 +824,14 @@ export default function CSVImportModal({ onClose }: Props) {
                   className="px-4 py-2 rounded-xl font-body font-semibold transition-all hover:opacity-90 flex items-center gap-2"
                   style={{
                     fontSize: 14,
-                    background: totalToProcess === 0 ? 'var(--card-border)' : '#15803d',
+                    background: '#b91c1c',
                     color: 'white',
                     border: 'none',
                     cursor: (importing || totalToProcess === 0) ? 'not-allowed' : 'pointer',
-                    opacity: totalToProcess === 0 ? 0.6 : 1,
+                    opacity: (importing || totalToProcess === 0) ? 0.6 : 1,
                   }}
                 >
-                  {importing ? (
-                    <><Loader2 size={16} className="animate-spin" /> Processing...</>
-                  ) : updateMode ? (
-                    `Import & Route ${totalToProcess} Item${totalToProcess !== 1 ? 's' : ''}`
-                  ) : (
-                    `Import ${newItems.length} New Item${newItems.length !== 1 ? 's' : ''}`
-                  )}
+                  {importing ? (<><Loader2 size={16} className="animate-spin" /> Importing...</>) : (`Replace Inventory with ${totalToProcess} Item${totalToProcess !== 1 ? 's' : ''}`)}
                 </button>
               )}
             </div>
@@ -1043,10 +842,10 @@ export default function CSVImportModal({ onClose }: Props) {
         <div className="flex flex-col items-center py-2 gap-3 w-full flex-1 overflow-y-auto min-h-0">
           <CheckCircle size={48} color="#22c55e" />
           <h4 className="font-heading font-bold" style={{ fontSize: 20, color: 'var(--heading-color)' }}>
-            Import &amp; Categorization Complete!
+            Import Complete
           </h4>
           <p className="font-body text-xs text-slate-500 dark:text-slate-400">
-            Items have been routed to their respective categories.
+            Your inventory has been replaced with the uploaded file.
           </p>
 
           {/* Stats grid */}
@@ -1057,18 +856,7 @@ export default function CSVImportModal({ onClose }: Props) {
                 <p className="font-body font-semibold" style={{ fontSize: 11, color: '#22c55e' }}>Added</p>
               </div>
             )}
-            {updated > 0 && (
-              <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)' }}>
-                <p className="font-heading font-black" style={{ fontSize: 24, color: '#60a5fa' }}>{updated}</p>
-                <p className="font-body font-semibold" style={{ fontSize: 11, color: '#60a5fa' }}>Updated</p>
-              </div>
-            )}
-            {skipped > 0 && (
-              <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.25)' }}>
-                <p className="font-heading font-black" style={{ fontSize: 24, color: '#fbbf24' }}>{skipped}</p>
-                <p className="font-body font-semibold" style={{ fontSize: 11, color: '#fbbf24' }}>Unchanged</p>
-              </div>
-            )}
+
             {failed > 0 && (
               <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)' }}>
                 <p className="font-heading font-black" style={{ fontSize: 24, color: '#f87171' }}>{failed}</p>
@@ -1076,56 +864,6 @@ export default function CSVImportModal({ onClose }: Props) {
               </div>
             )}
           </div>
-
-          {/* Changed items breakdown */}
-          {(changedItems.length > 0 || addedItems.length > 0) && (
-            <div className="w-full mt-1">
-              <p className="font-body font-semibold mb-2" style={{ fontSize: 12, color: 'var(--muted-text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Processed Items &amp; Categories
-              </p>
-              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 180, overflowY: 'auto' }}>
-                {changedItems.map((item, i) => (
-                  <div key={`upd-${i}`} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--card-border)', background: i % 2 === 0 ? 'var(--input-bg)' : 'transparent' }}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span
-                        className="px-2 py-0.5 rounded font-body font-bold text-white"
-                        style={{ fontSize: 9, background: getCategoryColor(item.category), flexShrink: 0 }}
-                      >
-                        {getCategoryLabel(item.category)}
-                      </span>
-                      <span className="font-body font-semibold truncate" style={{ fontSize: 12, color: 'var(--fg-color)' }}>{item.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>{item.oldQty}</span>
-                      <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>→</span>
-                      <span className="font-body font-bold" style={{ fontSize: 12, color: 'var(--fg-color)' }}>{item.newQty}</span>
-                      <span className="font-body font-bold px-1.5 py-0.5 rounded" style={{
-                        fontSize: 11,
-                        color: item.diff > 0 ? '#22c55e' : '#f87171',
-                        background: item.diff > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
-                      }}>
-                        {item.diff > 0 ? `+${item.diff}` : `${item.diff}`}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {addedItems.map((item, i) => (
-                  <div key={`add-${i}`} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--card-border)', background: (changedItems.length + i) % 2 === 0 ? 'var(--input-bg)' : 'transparent' }}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span
-                        className="px-2 py-0.5 rounded font-body font-bold text-white"
-                        style={{ fontSize: 9, background: getCategoryColor(item.category), flexShrink: 0 }}
-                      >
-                        {getCategoryLabel(item.category)}
-                      </span>
-                      <span className="font-body font-semibold truncate" style={{ fontSize: 12, color: 'var(--fg-color)' }}>{item.name}</span>
-                    </div>
-                    <span className="font-body font-bold" style={{ fontSize: 12, color: '#22c55e' }}>+{item.qty}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="pt-2 border-t border-[var(--card-border)] w-full shrink-0">
             <button
