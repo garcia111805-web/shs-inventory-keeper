@@ -411,8 +411,8 @@ export default function CSVImportModal({ onClose }: Props) {
           }
 
           setParsed(allParsed);
-        } catch {
-          setError('Failed to parse Excel file. Please check the format.');
+        } catch (err) {
+          setError('Failed to parse Excel file: ' + String(err));
         }
       };
       reader.readAsArrayBuffer(file);
@@ -515,7 +515,7 @@ export default function CSVImportModal({ onClose }: Props) {
   };
 
   return (
-    <ModalOverlay onClose={onClose} maxWidth="max-w-3xl" className="flex flex-col max-h-[90vh]">
+    <ModalOverlay onClose={onClose} maxWidth="max-w-7xl" className="flex flex-col max-h-[90vh]">
       {/* Header */}
       <div className="flex items-center gap-2 pb-3 border-b border-[var(--card-border)] shrink-0">
         <div className="rounded-xl flex items-center justify-center shrink-0" style={{ width: 36, height: 36, background: '#0d1b6e' }}>
