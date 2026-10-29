@@ -9,7 +9,6 @@ import ModalOverlay from './ModalOverlay';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatItemName, guessConsumable } from '../lib/utils';
 import { initialItems } from '../data/initialItems';
-import * as XLSX from 'xlsx';
 
 interface Props {
   onClose: () => void;
@@ -194,7 +193,6 @@ export default function CSVImportModal({ onClose }: Props) {
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState(0);
-      const [failed, setFailed] = useState(0);
   const [done, setDone] = useState(false);
 
   const availableCategoryNames = useMemo(() => {
@@ -471,9 +469,9 @@ export default function CSVImportModal({ onClose }: Props) {
   const handleImport = async () => {
     setImporting(true);
     setImported(0);
-    setFailed(0);
+
     let successCount = 0;
-    let failCount = 0;
+    const addedLog: { name: string; qty: number; category: string }[] = [];
 
     // Register any new categories if found in parsed items
     for (const row of parsed) {
@@ -486,6 +484,9 @@ export default function CSVImportModal({ onClose }: Props) {
     }
 
     for (const row of parsed) {
+      if (row.isDuplicate) {
+        continue;
+      }
       try {
         await addItem({
           name: row.name,
@@ -504,14 +505,17 @@ export default function CSVImportModal({ onClose }: Props) {
         setFailed(failCount);
       }
     }
+
     setImporting(false);
     setDone(true);
-    const msg = `${successCount} imported${failCount > 0 ? ` · ${failCount} failed` : ''}`;
-    showToast(msg, failCount > 0 ? 'warning' : 'success');
+    const note = successCount > 0
+      ? `${successCount} item${successCount !== 1 ? 's' : ''} imported successfully`
+      : 'Nothing to import';
+    showToast(note, 'success');
   };
 
   return (
-    <ModalOverlay onClose={onClose} maxWidth="max-w-6xl" className="flex flex-col max-h-[90vh]">
+    <ModalOverlay onClose={onClose} maxWidth="max-w-3xl" className="flex flex-col max-h-[90vh]">
       {/* Header */}
       <div className="flex items-center gap-2 pb-3 border-b border-[var(--card-border)] shrink-0">
         <div className="rounded-xl flex items-center justify-center shrink-0" style={{ width: 36, height: 36, background: '#0d1b6e' }}>
@@ -531,7 +535,31 @@ export default function CSVImportModal({ onClose }: Props) {
         <>
           {/* Scrollable Body Content */}
           <div className="flex-1 overflow-y-auto min-h-0 py-3 pr-1 space-y-3">
-           {/* File selection / File info */}
+
+            {items.length === 0 ? (
+              <div
+                className="rounded-xl p-3 flex items-center gap-2.5"
+                style={{ background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.2)' }}
+              >
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(21,128,61,0.15)', color: '#15803d' }}>
+                  <CheckCircle size={16} />
+                </div>
+                <div>
+                  <p className="font-body font-semibold text-xs" style={{ color: '#15803d' }}>
+                    Inventory Is Clear &amp; Fresh
+                  </p>
+                  <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
+                    Your inventory is empty. All imported items will be added as new records.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl p-3" style={{ background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.2)' }}>
+                <p className="font-body text-xs" style={{ color: '#15803d' }}>Upload your inventory file to begin.</p>
+              </div>
+            )}
+
+            {/* File selection / File info */}
             {!fileName ? (
               <div
                 onClick={() => fileRef.current?.click()}
@@ -603,7 +631,7 @@ export default function CSVImportModal({ onClose }: Props) {
                 style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)' }}
               >
                 <p className="font-body text-xs font-semibold" style={{ color: '#d97706' }}>
-                  This import will clear all current inventory and replace it with this file.
+                  Importing will replace all existing inventory data with this file.
                 </p>
                 <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
                   Current items and transactions will be cleared before importing.
@@ -631,77 +659,91 @@ export default function CSVImportModal({ onClose }: Props) {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="font-body font-semibold" style={{ fontSize: 13, color: 'var(--fg-color)' }}>
-                    Preview — {newItems.length} new
-                    {duplicateCount > 0 && (
-                      <span style={{ color: '#0d1b6e' }}>
-                        {' · '}{duplicateCount} will update
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                    Showing all {parsed.length} items
-                  </span>
-                </div>
-
-                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 260, overflowY: 'auto' }}>
-                  <table className="w-full" style={{ fontSize: 11, tableLayout: 'fixed' }}>
-                    <colgroup>
-                      <col style={{ width: '26%' }} />
-                      <col style={{ width: '16%' }} />
-                      <col style={{ width: '12%' }} />
-                      <col style={{ width: '10%' }} />
-                      <col style={{ width: '12%' }} />
-                      <col style={{ width: '14%' }} />
-                      <col style={{ width: '10%' }} />
-                    </colgroup>
+                <div className="hidden md:block rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 220, overflowY: 'auto' }}>
+                  <table className="w-full" style={{ fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: 'var(--table-header-bg)' }}>
-                        {['Name', 'Category', 'Unit', 'Qty', 'Threshold', 'Location', 'Type'].map(h => (
-                          <th key={h} className="text-left px-2 py-1.5 font-body uppercase" style={{ fontSize: 9, color: 'var(--muted-text)', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
+                        {['Name', 'Assigned Category', 'Unit', 'Qty', 'Threshold', 'Location', 'Type'].map(h => (
+                          <th key={h} className="text-left px-3 py-2 font-body uppercase" style={{ fontSize: 10, color: 'var(--muted-text)', fontWeight: 500 }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {parsed.map((row, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid var(--card-border)', background: row.isDuplicate ? 'rgba(217,119,6,0.08)' : undefined }}>
-                          <td className="px-2 py-1 font-body font-semibold" style={{ color: 'var(--fg-color)' }}>
-                            <div className="truncate" title={row.name}>{row.name}</div>
-                            {row.isDuplicate && (<span className="font-body ml-1 px-1.5 py-0.5 rounded" style={{ fontSize: 9, background: 'rgba(217,119,6,0.15)', color: '#d97706' }}>exists</span>)}
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--card-border)' }}>
+                          <td className="px-3 py-2 font-body font-semibold" style={{ color: 'var(--fg-color)' }}>
+                            {row.name}
+                            {row.isDuplicate && (
+                              <span className="font-body ml-1.5 px-1.5 py-0.5 rounded" style={{ fontSize: 9, background: 'rgba(217,119,6,0.15)', color: '#d97706' }}>exists</span>
+                            )}
                           </td>
-                          <td className="px-2 py-1">
-                            <select value={row.category} onChange={(e) => { const newCat = e.target.value; setParsed(prev => prev.map((item, i) => i === idx ? { ...item, category: newCat } : item)); }} className="font-body font-bold px-1.5 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer outline-none shadow-sm w-full" style={{ background: getCategoryColor(row.category) }} title="Click to adjust category">
-                              {availableCategories.map(cat => (<option key={cat} value={cat} style={{ background: '#1e293b', color: 'white' }}>{getCategoryLabel(cat)}</option>))}
+                          <td className="px-3 py-2">
+                            <select value={row.category} onChange={(e) => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, category: e.target.value } : item))} className="font-body font-bold px-2 py-0.5 rounded text-white text-[11px] border border-white/20 cursor-pointer outline-none shadow-sm" style={{ background: getCategoryColor(row.category) }} title="Click to adjust category">
+                              {availableCategories.map(cat => <option key={cat} value={cat} style={{ background: '#1e293b', color: 'white' }}>{getCategoryLabel(cat)}</option>)}
                             </select>
                           </td>
-                          <td className="px-2 py-1">
-                            <select value={row.unit} onChange={(e) => { const newUnit = e.target.value.toUpperCase(); setParsed(prev => prev.map((item, i) => i === idx ? { ...item, unit: newUnit } : item)); }} className="font-body text-[10px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white w-full" disabled={unitsLoading}>
-                              {units.map(u => (<option key={u.id} value={u.name.toUpperCase()} style={{ background: '#1e293b', color: 'white' }}>{u.name.toUpperCase()}</option>))}
+                          <td className="px-3 py-2">
+                            <select value={row.unit} onChange={(e) => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, unit: e.target.value.toUpperCase() } : item))} className="font-body text-[11px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white" disabled={unitsLoading}>
+                              {units.map(u => <option key={u.id} value={u.name.toUpperCase()} style={{ background: '#1e293b', color: 'white' }}>{u.name.toUpperCase()}</option>)}
                             </select>
                           </td>
-                          <td className="px-2 py-1">
-                            <input type="number" min="0" value={row.quantity} onChange={(e) => { const newQty = Math.max(0, parseInt(e.target.value) || 0); setParsed(prev => prev.map((item, i) => i === idx ? { ...item, quantity: newQty } : item)); }} className="w-full font-body font-bold text-[10px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none" />
+                          <td className="px-3 py-2">
+                            <input type="number" min="0" value={row.quantity} onChange={(e) => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, quantity: Math.max(0, parseInt(e.target.value) || 0) } : item))} className="w-16 font-body font-bold text-[11px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none" />
                           </td>
-                          <td className="px-2 py-1">
-                            <input type="number" min="0" value={row.lowStockThreshold} onChange={(e) => { const newThresh = Math.max(0, parseInt(e.target.value) || 0); setParsed(prev => prev.map((item, i) => i === idx ? { ...item, lowStockThreshold: newThresh } : item)); }} className="w-full font-body text-[10px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none" />
+                          <td className="px-3 py-2">
+                            <input type="number" min="0" value={row.lowStockThreshold} onChange={(e) => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, lowStockThreshold: Math.max(0, parseInt(e.target.value) || 0) } : item))} className="w-14 font-body text-[11px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none" />
                           </td>
-                          <td className="px-2 py-1">
-                            <select value={row.location || ''} onChange={(e) => { const newLoc = e.target.value || undefined; setParsed(prev => prev.map((item, i) => i === idx ? { ...item, location: newLoc } : item)); }} className="font-body text-[10px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white w-full" disabled={locationsLoading}>
+                          <td className="px-3 py-2">
+                            <select value={row.location || ''} onChange={(e) => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, location: e.target.value || undefined } : item))} className="font-body text-[11px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white" disabled={locationsLoading}>
                               <option value="">— None —</option>
-                              {locations.map(loc => (<option key={loc.id} value={loc.name} style={{ background: '#1e293b', color: 'white' }}>{loc.name}</option>))}
+                              {locations.map(loc => <option key={loc.id} value={loc.name} style={{ background: '#1e293b', color: 'white' }}>{loc.name}</option>)}
                             </select>
                           </td>
-                          <td className="px-2 py-1">
-                            <button onClick={() => { setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item)); }} className="font-body font-bold px-2 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer shadow-sm whitespace-nowrap w-full" style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }} title={row.isConsumable ? 'Consumable Supply — click to make Non-Consumable' : 'Non-Consumable — click to make Consumable'}>
-                              {row.isConsumable ? 'Consumable' : 'Non-Consumable'}
+                          <td className="px-3 py-2">
+                            <button onClick={() => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item))} className="font-body font-bold px-2 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer shadow-sm" style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }} title={row.isConsumable ? 'Consumable — click to change' : 'Asset — click to change'}>
+                              {row.isConsumable ? 'Consumable' : 'Asset'}
                             </button>
                           </td>
                         </tr>
                       ))}
-
                     </tbody>
                   </table>
+                </div>
+                <div className="md:hidden space-y-2">
+                  {parsed.map((row, idx) => (
+                    <div key={idx} className="rounded-xl p-3" style={{ border: '1px solid var(--card-border)', background: 'var(--input-bg)' }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-body font-bold text-xs truncate" style={{ color: 'var(--fg-color)' }}>{row.name}</p>
+                        <span className="px-2 py-0.5 rounded font-body font-bold text-white" style={{ fontSize: 9, background: getCategoryColor(row.category) }}>{getCategoryLabel(row.category)}</span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="font-body" style={{ fontSize: 10, color: 'var(--muted-text)' }}>Unit</p>
+                          <select value={row.unit} onChange={(e) => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, unit: e.target.value.toUpperCase() } : item))} className="mt-1 w-full font-body text-xs px-2 py-1.5 rounded border border-white/20 bg-slate-800 text-white outline-none" disabled={unitsLoading}>
+                            {units.map(u => <option key={u.id} value={u.name.toUpperCase()} style={{ background: '#1e293b', color: 'white' }}>{u.name.toUpperCase()}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <p className="font-body" style={{ fontSize: 10, color: 'var(--muted-text)' }}>Qty</p>
+                          <input type="number" min="0" value={row.quantity} onChange={(e) => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, quantity: Math.max(0, parseInt(e.target.value) || 0) } : item))} className="mt-1 w-full font-body text-xs px-2 py-1.5 rounded border border-white/20 bg-slate-800 text-white outline-none" />
+                        </div>
+                        <div>
+                          <p className="font-body" style={{ fontSize: 10, color: 'var(--muted-text)' }}>Threshold</p>
+                          <input type="number" min="0" value={row.lowStockThreshold} onChange={(e) => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, lowStockThreshold: Math.max(0, parseInt(e.target.value) || 0) } : item))} className="mt-1 w-full font-body text-xs px-2 py-1.5 rounded border border-white/20 bg-slate-800 text-white outline-none" />
+                        </div>
+                        <div>
+                          <p className="font-body" style={{ fontSize: 10, color: 'var(--muted-text)' }}>Location</p>
+                          <select value={row.location || ''} onChange={(e) => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, location: e.target.value || undefined } : item))} className="mt-1 w-full font-body text-xs px-2 py-1.5 rounded border border-white/20 bg-slate-800 text-white outline-none" disabled={locationsLoading}>
+                            <option value="">— None —</option>
+                            {locations.map(loc => <option key={loc.id} value={loc.name} style={{ background: '#1e293b', color: 'white' }}>{loc.name}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <button onClick={() => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item))} className="w-full font-body font-bold text-[11px] py-1.5 rounded border border-white/20 text-white shadow-sm" style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }}>{row.isConsumable ? 'Consumable' : 'Asset'}</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -726,8 +768,7 @@ export default function CSVImportModal({ onClose }: Props) {
                     {imported} / {parsed.length}
                   </p>
                   <p className="font-body" style={{ fontSize: 12, color: 'var(--fg-color)', opacity: 0.9 }}>
-                    {imported > 0 && <span style={{ color: '#22c55e' }}>{imported} imported</span>}
-                    {failed > 0 && <span style={{ color: '#f87171' }}> · {failed} failed</span>}
+                    {imported > 0 && <span style={{ color: '#22c55e' }}>{imported} added</span>}
                     {imported === 0 && <span>Processing...</span>}
                   </p>
                 </div>
@@ -755,14 +796,18 @@ export default function CSVImportModal({ onClose }: Props) {
                   className="px-4 py-2 rounded-xl font-body font-semibold transition-all hover:opacity-90 flex items-center gap-2"
                   style={{
                     fontSize: 14,
-                    background: '#b91c1c',
+                    background: totalToProcess === 0 ? 'var(--card-border)' : '#15803d',
                     color: 'white',
                     border: 'none',
                     cursor: (importing || totalToProcess === 0) ? 'not-allowed' : 'pointer',
-                    opacity: (importing || totalToProcess === 0) ? 0.6 : 1,
+                    opacity: totalToProcess === 0 ? 0.6 : 1,
                   }}
                 >
-                  {importing ? (<><Loader2 size={16} className="animate-spin" /> Importing...</>) : (`Replace Inventory with ${totalToProcess} Item${totalToProcess !== 1 ? 's' : ''}`)}
+                  {importing ? (
+                    <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                  ) : (
+                    `Import ${totalToProcess} Item${totalToProcess !== 1 ? 's' : ''}`
+                  )}
                 </button>
               )}
             </div>
@@ -773,27 +818,19 @@ export default function CSVImportModal({ onClose }: Props) {
         <div className="flex flex-col items-center py-2 gap-3 w-full flex-1 overflow-y-auto min-h-0">
           <CheckCircle size={48} color="#22c55e" />
           <h4 className="font-heading font-bold" style={{ fontSize: 20, color: 'var(--heading-color)' }}>
-            Import Complete
+            Import &amp; Categorization Complete!
           </h4>
           <p className="font-body text-xs text-slate-500 dark:text-slate-400">
-            Your inventory has been replaced with the uploaded file.
+            Items have been routed to their respective categories.
           </p>
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full mt-1">
-            {imported > 0 && (
-              <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
-                <p className="font-heading font-black" style={{ fontSize: 24, color: '#22c55e' }}>{imported}</p>
-                <p className="font-body font-semibold" style={{ fontSize: 11, color: '#22c55e' }}>Added</p>
-              </div>
-            )}
-
-            {failed > 0 && (
-              <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)' }}>
-                <p className="font-heading font-black" style={{ fontSize: 24, color: '#f87171' }}>{failed}</p>
-                <p className="font-body font-semibold" style={{ fontSize: 11, color: '#f87171' }}>Failed</p>
-              </div>
-            )}
+          <div className="w-full mt-2 rounded-xl p-4 text-center" style={{ border: '1px solid var(--card-border)', background: 'var(--input-bg)' }}>
+            <p className="font-body font-bold" style={{ fontSize: 14, color: 'var(--fg-color)' }}>
+              {imported ? `Imported ${imported} item${imported === 1 ? '' : 's'}` : 'No items imported'}
+            </p>
+            <p className="font-body mt-1" style={{ fontSize: 12, color: 'var(--muted-text)' }}>
+              The inventory has been refreshed from this file.
+            </p>
           </div>
 
           <div className="pt-2 border-t border-[var(--card-border)] w-full shrink-0">
