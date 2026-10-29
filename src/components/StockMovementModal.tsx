@@ -102,7 +102,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, l
       (type !== 'restock' && type !== 'return' && newStock >= 0)
     );
   const isByValid = by.trim().length > 0;
-  const isReturnValid = type !== 'borrow' || returnDate !== '';
+  const isReturnValid = type !== 'borrow' || (selectedItem?.isConsumable ? true : returnDate !== '');
   const canSubmit =
     selectedItem && isQtyValid && isByValid && isReturnValid;
 
@@ -375,27 +375,29 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, l
         </div>
 
         {/* Borrow return date — animated slide-in */}
-        <div
-          className="overflow-hidden transition-all"
-          style={{
-            maxHeight: type === 'borrow' ? 80 : 0,
-            opacity: type === 'borrow' ? 1 : 0,
-            transition: 'max-height 0.3s ease, opacity 0.25s ease',
-          }}
-        >
-          <label
-            className="font-body text-xs mb-1 block"
-            style={{ color: 'var(--muted-text)' }}
+        {type === 'borrow' && selectedItem?.isConsumable && (
+          <div
+            className="overflow-hidden transition-all"
+            style={{
+              maxHeight: 80,
+              opacity: 1,
+              transition: 'max-height 0.3s ease, opacity 0.25s ease',
+            }}
           >
-            Expected Return Date <span style={{ color: '#b91c1c' }}>*</span>
-          </label>
-          <input
-            className={fieldClass(isReturnValid)}
-            type="date"
-            value={returnDate}
-            onChange={e => setReturnDate(e.target.value)}
-          />
-        </div>
+            <label
+              className="font-body text-xs mb-1 block"
+              style={{ color: 'var(--muted-text)' }}
+            >
+              Expected Return Date <span style={{ color: '#b91c1c' }}>*</span>
+            </label>
+            <input
+              className={fieldClass(isReturnValid)}
+              type="date"
+              value={returnDate}
+              onChange={e => setReturnDate(e.target.value)}
+            />
+          </div>
+        )}
 
         <div>
           <label

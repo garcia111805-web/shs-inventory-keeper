@@ -182,7 +182,7 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 }
 
 export default function CSVImportModal({ onClose }: Props) {
-  const { items, addItem, showToast } = useInventory();
+  const { items, addItem, updateItem, showToast } = useInventory();
   const { user } = useAuth();
   const { categories: dbCategories, addCategory } = useCategories();
   const { locations, loading: locationsLoading } = useLocations();
@@ -485,20 +485,33 @@ export default function CSVImportModal({ onClose }: Props) {
     }
 
     for (const row of parsed) {
-      if (row.isDuplicate) {
-        continue;
-      }
+      const existing = row.isDuplicate
+        ? items.find(i => i.name.toLowerCase().trim() === row.name.toLowerCase().trim())
+        : undefined;
       try {
-        await addItem({
-          name: row.name,
-          category: row.category,
-          unit: row.unit,
-          quantity: row.quantity,
-          lowStockThreshold: row.lowStockThreshold,
-          notes: row.notes,
-          location: row.location || undefined,
-          isConsumable: row.isConsumable,
-        });
+        if (existing) {
+          await updateItem({
+            ...existing,
+            category: row.category,
+            unit: row.unit,
+            quantity: row.quantity,
+            lowStockThreshold: row.lowStockThreshold,
+            notes: row.notes || existing.notes,
+            location: row.location || existing.location,
+            isConsumable: row.isConsumable,
+          });
+        } else {
+          await addItem({
+            name: row.name,
+            category: row.category,
+            unit: row.unit,
+            quantity: row.quantity,
+            lowStockThreshold: row.lowStockThreshold,
+            notes: row.notes,
+            location: row.location || undefined,
+            isConsumable: row.isConsumable,
+          });
+        }
         successCount++;
         setImported(successCount);
       } catch {
@@ -625,17 +638,19 @@ export default function CSVImportModal({ onClose }: Props) {
               </div>
             )}
 
-            {/* Wipe notice */}
+            {/* Replace notice */}
             {parsed.length > 0 && (
               <div
                 className="rounded-xl p-3"
                 style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)' }}
               >
                 <p className="font-body text-xs font-semibold" style={{ color: '#d97706' }}>
-                  Importing will replace all existing inventory data with this file.
+                  New items will be added. Duplicates will be skipped.
                 </p>
                 <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
-                  Current items and transactions will be cleared before importing.
+                  {duplicateCount > 0
+                    ? `${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} detected and will be skipped.`
+                    : 'No duplicates detected.'}
                 </p>
               </div>
             )}
@@ -701,7 +716,7 @@ export default function CSVImportModal({ onClose }: Props) {
                             </select>
                           </td>
                           <td className="px-3 py-2">
-                            <button onClick={() => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item))} className="font-body font-bold px-2 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer shadow-sm" style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }} title={row.isConsumable ? 'Consumable — click to change' : 'Asset — click to change'}>
+                            <button onClick={() => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item))} className="font-body font-bold px-2 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer shadow-sm" style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }} title={row.isConsumable ? 'Consumable — click to change' : 'Non-Consumable — click to change'}>
                               {row.isConsumable ? 'Consumable' : 'Asset'}
                             </button>
                           </td>

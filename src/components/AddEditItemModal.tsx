@@ -179,7 +179,7 @@ export default function AddEditItemModal({ item, defaultCategory, onClose }: Pro
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="font-heading font-bold text-sm" style={{ color: !isConsumable ? '#7c3aed' : 'var(--fg-color)' }}>
-                    Asset / Equipment
+                    Non-Consumable / Equipment
                   </span>
                   {!isConsumable && <CheckCircle2 size={16} className="text-[#7c3aed]" />}
                 </div>
