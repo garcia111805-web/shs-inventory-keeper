@@ -102,7 +102,7 @@ export default function StockMovementModal({ item: prefilledItem, defaultType, l
       (type !== 'restock' && type !== 'return' && newStock >= 0)
     );
   const isByValid = by.trim().length > 0;
-  const isReturnValid = type !== 'borrow' || (selectedItem?.isConsumable ? true : returnDate !== '');
+  const isReturnValid = type !== 'borrow' || (selectedItem?.isConsumable ? returnDate !== '' : true);
   const canSubmit =
     selectedItem && isQtyValid && isByValid && isReturnValid;
 
