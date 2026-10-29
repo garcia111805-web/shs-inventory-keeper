@@ -641,134 +641,65 @@ export default function CSVImportModal({ onClose }: Props) {
                     )}
                   </span>
                   <span className="font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                    Showing first {Math.min(parsed.length, 12)} of {parsed.length}
+                    Showing all {parsed.length} items
                   </span>
                 </div>
 
-                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 260, overflowX: 'auto', overflowY: 'auto' }}>
-                  <table className="w-full" style={{ fontSize: 12, minWidth: 860 }}>
+                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 260, overflowY: 'auto' }}>
+                  <table className="w-full" style={{ fontSize: 11, tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '28%' }} />
+                      <col style={{ width: '16%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '14%' }} />
+                      <col style={{ width: '8%' }} />
+                    </colgroup>
                     <thead>
                       <tr style={{ background: 'var(--table-header-bg)' }}>
-                        {['Name', 'Assigned Category', 'Unit', 'Qty', 'Threshold', 'Location', 'Stock Type'].map(h => (
-                          <th key={h} className="text-left px-3 py-2 font-body uppercase" style={{ fontSize: 10, color: 'var(--muted-text)', fontWeight: 500 }}>{h}</th>
+                        {['Name', 'Category', 'Unit', 'Qty', 'Threshold', 'Location', 'Type'].map(h => (
+                          <th key={h} className="text-left px-2 py-1.5 font-body uppercase" style={{ fontSize: 9, color: 'var(--muted-text)', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {parsed.slice(0, 12).map((row, idx) => (
-                        <tr key={idx} style={{
-                          borderBottom: '1px solid var(--card-border)',
-                          background: row.isDuplicate ? 'rgba(217,119,6,0.08)' : undefined,
-                        }}>
-                          <td className="px-3 py-1.5 font-body font-semibold" style={{ color: 'var(--fg-color)' }}>
-                            {row.name}
-                            {row.isDuplicate && (
-                              <span
-                                className="font-body ml-1.5 px-1.5 py-0.5 rounded"
-                                style={{ fontSize: 9, background: 'rgba(217,119,6,0.15)', color: '#d97706' }}
-                              >
-                                exists
-                              </span>
-                            )}
+                      {parsed.map((row, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--card-border)', background: row.isDuplicate ? 'rgba(217,119,6,0.08)' : undefined }}>
+                          <td className="px-2 py-1 font-body font-semibold" style={{ color: 'var(--fg-color)' }}>
+                            <div className="truncate" title={row.name}>{row.name}</div>
+                            {row.isDuplicate && (<span className="font-body ml-1 px-1.5 py-0.5 rounded" style={{ fontSize: 9, background: 'rgba(217,119,6,0.15)', color: '#d97706' }}>exists</span>)}
                           </td>
-                          <td className="px-3 py-1.5">
-                            <select
-                              value={row.category}
-                              onChange={(e) => {
-                                const newCat = e.target.value;
-                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, category: newCat } : item));
-                              }}
-                              className="font-body font-bold px-2 py-0.5 rounded text-white text-[11px] border border-white/20 cursor-pointer outline-none shadow-sm transition-all"
-                              style={{ background: getCategoryColor(row.category) }}
-                              title="Click to adjust category"
-                            >
-                              {availableCategories.map(cat => (
-                                <option key={cat} value={cat} style={{ background: '#1e293b', color: 'white' }}>
-                                  {getCategoryLabel(cat)}
-                                </option>
-                              ))}
+                          <td className="px-2 py-1">
+                            <select value={row.category} onChange={(e) => { const newCat = e.target.value; setParsed(prev => prev.map((item, i) => i === idx ? { ...item, category: newCat } : item)); }} className="font-body font-bold px-1.5 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer outline-none shadow-sm w-full" style={{ background: getCategoryColor(row.category) }} title="Click to adjust category">
+                              {availableCategories.map(cat => (<option key={cat} value={cat} style={{ background: '#1e293b', color: 'white' }}>{getCategoryLabel(cat)}</option>))}
                             </select>
                           </td>
-                          <td className="px-3 py-1.5">
-                            <select
-                              value={row.unit}
-                              onChange={(e) => {
-                                const newUnit = e.target.value.toUpperCase();
-                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, unit: newUnit } : item));
-                              }}
-                              className="font-body text-[11px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white"
-                              disabled={unitsLoading}
-                            >
-                              {units.map(u => (
-                                <option key={u.id} value={u.name.toUpperCase()} style={{ background: '#1e293b', color: 'white' }}>
-                                  {u.name.toUpperCase()}
-                                </option>
-                              ))}
+                          <td className="px-2 py-1">
+                            <select value={row.unit} onChange={(e) => { const newUnit = e.target.value.toUpperCase(); setParsed(prev => prev.map((item, i) => i === idx ? { ...item, unit: newUnit } : item)); }} className="font-body text-[10px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white w-full" disabled={unitsLoading}>
+                              {units.map(u => (<option key={u.id} value={u.name.toUpperCase()} style={{ background: '#1e293b', color: 'white' }}>{u.name.toUpperCase()}</option>))}
                             </select>
                           </td>
-                          <td className="px-3 py-1.5">
-                            <input
-                              type="number"
-                              min="0"
-                              value={row.quantity}
-                              onChange={(e) => {
-                                const newQty = Math.max(0, parseInt(e.target.value) || 0);
-                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, quantity: newQty } : item));
-                              }}
-                              className="w-16 font-body font-bold text-[11px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none"
-                            />
+                          <td className="px-2 py-1">
+                            <input type="number" min="0" value={row.quantity} onChange={(e) => { const newQty = Math.max(0, parseInt(e.target.value) || 0); setParsed(prev => prev.map((item, i) => i === idx ? { ...item, quantity: newQty } : item)); }} className="w-full font-body font-bold text-[10px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none" />
                           </td>
-                          <td className="px-3 py-1.5">
-                            <input
-                              type="number"
-                              min="0"
-                              value={row.lowStockThreshold}
-                              onChange={(e) => {
-                                const newThresh = Math.max(0, parseInt(e.target.value) || 0);
-                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, lowStockThreshold: newThresh } : item));
-                              }}
-                              className="w-14 font-body text-[11px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none"
-                            />
+                          <td className="px-2 py-1">
+                            <input type="number" min="0" value={row.lowStockThreshold} onChange={(e) => { const newThresh = Math.max(0, parseInt(e.target.value) || 0); setParsed(prev => prev.map((item, i) => i === idx ? { ...item, lowStockThreshold: newThresh } : item)); }} className="w-full font-body text-[10px] text-center px-1.5 py-0.5 rounded border border-white/20 bg-slate-800 text-white outline-none" />
                           </td>
-                          <td className="px-3 py-1.5">
-                            <select
-                              value={row.location || ''}
-                              onChange={(e) => {
-                                const newLoc = e.target.value || undefined;
-                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, location: newLoc } : item));
-                              }}
-                              className="font-body text-[11px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white"
-                              disabled={locationsLoading}
-                            >
+                          <td className="px-2 py-1">
+                            <select value={row.location || ''} onChange={(e) => { const newLoc = e.target.value || undefined; setParsed(prev => prev.map((item, i) => i === idx ? { ...item, location: newLoc } : item)); }} className="font-body text-[10px] px-1.5 py-0.5 rounded border border-white/20 cursor-pointer outline-none shadow-sm bg-slate-800 text-white w-full" disabled={locationsLoading}>
                               <option value="">— None —</option>
-                              {locations.map(loc => (
-                                <option key={loc.id} value={loc.name} style={{ background: '#1e293b', color: 'white' }}>
-                                  {loc.name}
-                                </option>
-                              ))}
+                              {locations.map(loc => (<option key={loc.id} value={loc.name} style={{ background: '#1e293b', color: 'white' }}>{loc.name}</option>))}
                             </select>
                           </td>
-                          <td className="px-3 py-1.5">
-                            <button
-                              onClick={() => {
-                                setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item));
-                              }}
-                              className="font-body font-bold px-2 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer shadow-sm transition-all"
-                              style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }}
-                              title={row.isConsumable ? 'Consumable Supply — click to make Non-Consumable' : 'Non-Consumable — click to make Consumable'}
-                            >
+                          <td className="px-2 py-1">
+                            <button onClick={() => { setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item)); }} className="font-body font-bold px-2 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer shadow-sm whitespace-nowrap w-full" style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }} title={row.isConsumable ? 'Consumable Supply — click to make Non-Consumable' : 'Non-Consumable — click to make Consumable'}>
                               {row.isConsumable ? 'Consumable' : 'Non-Consumable'}
                             </button>
                           </td>
                         </tr>
                       ))}
-                      {parsed.length > 12 && (
-                        <tr>
-                          <td colSpan={7} className="text-center py-2 font-body" style={{ fontSize: 11, color: 'var(--muted-text)' }}>
-                            ...and {parsed.length - 12} more items correctly categorized
-                          </td>
-                        </tr>
-                      )}
+
                     </tbody>
                   </table>
                 </div>
