@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import CSVImportModal from '../components/CSVImportModal';
 import { useLocations } from '../hooks/useLocations';
 import { useUsers } from '../hooks/useUsers';
-import { useImportSettings } from '../hooks/useImportSettings';
 import { useCategories } from '../hooks/useCategories';
 import { useUnits } from '../hooks/useUnits';
 import { useInventory } from '../context/InventoryContext';
-import { MapPin, Plus, Pencil, Trash2, Check, X, Settings, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck, ChevronDown, LayoutGrid, Ruler, CornerDownLeft, Upload } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Check, X, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck, LayoutGrid, Ruler } from 'lucide-react';
 import { UserRole } from '../types';
 
 // ─── Reusable Row Editor ─────────────────────────────────────────────────────
@@ -94,56 +92,6 @@ function EntryRow({ id, name, onEdit, onDelete }: EntryRowProps) {
   );
 }
 
-function ModernSelect({ value, onChange, options, label }: { value: string, onChange: (v: string) => void, options: { value: string, label: string }[], label: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const currentLabel = options.find(o => o.value === value)?.label || label;
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl font-body font-semibold transition-all"
-        style={{
-          fontSize: 14,
-          background: 'var(--input-bg)',
-          border: '1px solid var(--card-border)',
-          color: 'var(--fg-color)',
-          boxShadow: isOpen ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none'
-        }}
-      >
-        <span className="truncate">{currentLabel}</span>
-        <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full left-0 right-0 mt-2 rounded-xl shadow-2xl overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2 duration-200"
-            style={{ background: 'var(--dropdown-bg)', border: '1px solid var(--card-border)', minWidth: 180 }}>
-            <div className="max-h-60 overflow-y-auto py-1">
-              {options.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => { onChange(opt.value); setIsOpen(false); }}
-                  className="w-full text-left px-4 py-3 font-body transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                  style={{
-                    fontSize: 14,
-                    color: value === opt.value ? 'var(--accent-color)' : 'var(--fg-color)',
-                    background: value === opt.value ? 'var(--accent-glow)' : 'transparent',
-                    fontWeight: value === opt.value ? 700 : 500
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { showToast } = useInventory();
@@ -158,9 +106,6 @@ export default function SettingsPage() {
   const { units, loading: unitLoading, addUnit, updateUnit, deleteUnit } = useUnits();
   const [newUnit, setNewUnit] = useState('');
   const [addingUnit, setAddingUnit] = useState(false);
-
-  const { settings, update } = useImportSettings();
-  const [showCSVImport, setShowCSVImport] = useState(false);
 
 
 
@@ -226,11 +171,6 @@ export default function SettingsPage() {
 
   return (
     <div className="p-8 md:p-12 space-y-12 max-w-6xl mx-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 64px)' }}>
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <h1 className="font-heading font-black text-4xl tracking-tight" style={{ color: 'var(--heading-color)' }}>Settings</h1>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {/* Categories Section */}
         <section className="panel-card p-8 space-y-6">
@@ -285,33 +225,7 @@ export default function SettingsPage() {
             ))}
           </div>
 
-          {/* Import section */}
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <label className="font-body text-sm font-semibold" style={{ color: 'var(--fg-color)' }} htmlFor="fallbackCat">Default import category:</label>
-              <select
-                id="fallbackCat"
-                value={settings.fallbackCategory}
-                onChange={e => update({ fallbackCategory: e.target.value })}
-                className="modal-input"
-                style={{ padding: '0.5rem 0.75rem', minWidth: 140 }}
-              >
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.name}>{cat.name}</option>
-                ))}
-              </select>
-              <span className="text-xs text-slate-400">(fallback when file has no category)</span>
-            </div>
-            <button
-              onClick={() => setShowCSVImport(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-body font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #4f46e5, #6366f1)', boxShadow: '0 4px 12px rgba(79,70,229,0.25)' }}
-            >
-              <Upload size={16} />
-              <span>Import Data from CSV / Excel</span>
-            </button>
-            <p className="text-xs text-slate-400 text-center">Items will be matched to the categories above. New categories are created automatically.</p>
-          </div>
+
         </section>
 
         {/* Units Section */}
@@ -424,7 +338,7 @@ export default function SettingsPage() {
 
         {/* User Management Section */}
         <UserManagementSection />
-        {showCSVImport && <CSVImportModal onClose={() => setShowCSVImport(false)} />}
+
       </div>
     </div>
   );
