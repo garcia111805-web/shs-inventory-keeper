@@ -717,7 +717,7 @@ export default function CSVImportModal({ onClose }: Props) {
                           </td>
                           <td className="px-3 py-2">
                             <button onClick={() => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item))} className="font-body font-bold px-2 py-0.5 rounded text-white text-[10px] border border-white/20 cursor-pointer shadow-sm" style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }} title={row.isConsumable ? 'Consumable — click to change' : 'Non-Consumable — click to change'}>
-                              {row.isConsumable ? 'Consumable' : 'Asset'}
+                              {row.isConsumable ? 'Consumable' : 'Non-Consumable'}
                             </button>
                           </td>
                         </tr>
@@ -756,7 +756,7 @@ export default function CSVImportModal({ onClose }: Props) {
                         </div>
                       </div>
                       <div className="mt-2">
-                        <button onClick={() => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item))} className="w-full font-body font-bold text-[11px] py-1.5 rounded border border-white/20 text-white shadow-sm" style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }}>{row.isConsumable ? 'Consumable' : 'Asset'}</button>
+                        <button onClick={() => setParsed(prev => prev.map((item, i) => i === idx ? { ...item, isConsumable: !item.isConsumable } : item))} className="w-full font-body font-bold text-[11px] py-1.5 rounded border border-white/20 text-white shadow-sm" style={{ background: row.isConsumable ? '#d97706' : '#7c3aed' }}>{row.isConsumable ? 'Consumable' : 'Non-Consumable'}</button>
                       </div>
                     </div>
                   ))}
