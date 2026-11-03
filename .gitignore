@@ -26,4 +26,15 @@ dist-ssr
 .env
 .env*.local
 *.mjs
+*.bak
+*.mp4
+*.mov
+*.avi
+*.cjs
+*.py
+demo-inventory-import.csv
+verify-import*.cjs
+SYSTEM DEMO.mp4
+public/images/Gemini_Generated_Image_bn94ncbn94ncbn94.png
+
 
