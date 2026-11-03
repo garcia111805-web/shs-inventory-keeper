@@ -262,7 +262,7 @@ export default function CSVImportModal({ onClose }: Props) {
     }
 
     if (parsedItems.length === 0) {
-      setError('Detected Sucat Elementary School format but found no items starting from Row 7.');
+      setError('Detected Sucat Senior High School School format but found no items starting from Row 7.');
       return;
     }
 
@@ -377,7 +377,7 @@ export default function CSVImportModal({ onClose }: Props) {
               const hasSucatHeader = rows.slice(0, 6).some(r =>
                 r.some(c => {
                   const val = String(c || '').toUpperCase();
-                  return val.includes('SUCAT ELEMENTARY') || val.includes('SUCAT SENIOR HIGH') ||
+                  return val.includes('SUCAT SENIOR HIGH SCHOOL') || val.includes('SUCAT SENIOR HIGH') ||
                     (val.includes('CLEANING') && r.some(c2 => String(c2 || '').toUpperCase().includes('OFFICE')));
                 })
               );
@@ -437,7 +437,7 @@ export default function CSVImportModal({ onClose }: Props) {
           const hasSucatHeader = allRows.slice(0, 6).some(r =>
             r.some(c => {
               const val = String(c || '').toUpperCase();
-              return val.includes('SUCAT ELEMENTARY') || val.includes('SUCAT SENIOR HIGH') ||
+              return val.includes('SUCAT SENIOR HIGH SCHOOL') || val.includes('SUCAT SENIOR HIGH') ||
                 (val.includes('CLEANING') && r.some(c2 => String(c2 || '').toUpperCase().includes('OFFICE')));
             })
           );

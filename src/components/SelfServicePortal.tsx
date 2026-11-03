@@ -36,7 +36,7 @@ export default function SelfServicePortal({ onAction }: PortalProps) {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto animate-fade-in">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in">
       <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2 flex-wrap">

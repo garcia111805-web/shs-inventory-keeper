@@ -136,7 +136,7 @@ export default function Index() {
       <div className="min-h-screen flex flex-col transition-colors duration-300" style={{ background: 'var(--app-bg)' }}>
         <header className="px-6 py-4 flex items-center justify-between border-b transition-colors duration-300" style={{ background: 'var(--topbar-bg)', borderColor: 'var(--topbar-border)' }}>
           <div className="flex items-center gap-3">
-            <img src="/images/sucat-elementary-logo.png" alt="Sucat Elementary School Logo" className="w-8 h-8 rounded-full border border-[#e8b400] object-contain bg-white p-0.5" />
+            <img src="/images/sshs-logo.jpg" alt="Sucat Senior High School Logo" className="w-8 h-8 rounded-full border border-[#e8b400] object-contain bg-white p-0.5" />
             <div>
               <h2 className="font-heading font-bold" style={{ fontSize: 18, color: 'var(--heading-color)', lineHeight: 1.2 }}>Staff Operations</h2>
               <div className="flex items-center gap-2">
