@@ -19,7 +19,7 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(() => {
     try {
-      const saved = localStorage.getItem('sucat-user') || localStorage.getItem('sshs-user');
+      const saved = sessionStorage.getItem('sucat-user') || sessionStorage.getItem('sshs-user');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -28,13 +28,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (u: AppUser) => {
     setUser(u);
-    localStorage.setItem('sucat-user', JSON.stringify(u));
+    sessionStorage.setItem('sucat-user', JSON.stringify(u));
+    sessionStorage.setItem('sshs-user', JSON.stringify(u));
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('sucat-user');
-    localStorage.removeItem('sshs-user');
+    sessionStorage.removeItem('sucat-user');
+    sessionStorage.removeItem('sshs-user');
   };
 
   return (
