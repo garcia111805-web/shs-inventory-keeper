@@ -262,7 +262,7 @@ export default function CSVImportModal({ onClose }: Props) {
     }
 
     if (parsedItems.length === 0) {
-      setError('Detected Sucat Senior High School School format but found no items starting from Row 7.');
+      setError('Detected Sucat Senior High School format but found no items starting from Row 7.');
       return;
     }
 

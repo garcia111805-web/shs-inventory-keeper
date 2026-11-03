@@ -170,7 +170,7 @@ export default function LoginGateway() {
           <div className="relative inline-block">
             <img
               src="/images/sshs-logo.jpg"
-              alt="Sucat Senior High School School Logo"
+              alt="Sucat Senior High School Logo"
               className="rounded-full mx-auto object-contain bg-white p-0.5"
               style={{
                 width: 90,
@@ -187,7 +187,7 @@ export default function LoginGateway() {
             Inventory Gateway
           </h1>
           <p className="font-body mt-1 font-bold" style={{ fontSize: 16, color: 'var(--muted-text)' }}>
-            Sucat Senior High School School Portal
+            Sucat Senior High School Portal
           </p>
         </div>
 
@@ -408,7 +408,7 @@ export default function LoginGateway() {
         </div>
 
         <p className="text-center mt-10 text-slate-500 dark:text-white/40 text-sm font-body font-medium">
-          Authorized Access Only • Sucat Senior High School School
+          Authorized Access Only • Sucat Senior High School
         </p>
       </div>
 

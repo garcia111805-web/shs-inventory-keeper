@@ -107,7 +107,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
           <img
             src="/images/sshs-logo.jpg"
-            alt="Sucat Senior High School School Logo"
+            alt="Sucat Senior High School Logo"
             className="relative rounded-full bg-white p-0.5 object-contain"
             style={{
               width: 84, height: 84,
@@ -116,7 +116,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
           />
         </div>
         <h2 className="font-heading font-black text-center mt-4" style={{ color: 'var(--heading-color)', fontSize: 18 }}>
-          Sucat Senior High School School
+          Sucat Senior High School
         </h2>
         <p className="font-body text-[11px] font-bold uppercase tracking-widest mt-1" style={{ color: 'var(--muted-text)', opacity: 1 }}>
           Inventory System

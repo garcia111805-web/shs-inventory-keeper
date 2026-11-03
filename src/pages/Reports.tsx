@@ -89,7 +89,7 @@ export default function Reports() {
     doc.setDrawColor(13, 27, 110); doc.setLineWidth(1.5);
     doc.line(m, y, pw - m, y); y += 8;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(13, 27, 110);
-    doc.text('SUCAT SENIOR HIGH SCHOOL SCHOOL', pw / 2, y, { align: 'center' }); y += 7;
+    doc.text('SUCAT SENIOR HIGH SCHOOL', pw / 2, y, { align: 'center' }); y += 7;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100);
     doc.text('City of Muntinlupa', pw / 2, y, { align: 'center' }); y += 10;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(13, 27, 110);
@@ -204,7 +204,7 @@ export default function Reports() {
     // Footer
     doc.setDrawColor(13, 27, 110); doc.setLineWidth(0.3); doc.line(m, ph - 12, pw - m, ph - 12);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(150);
-    doc.text('Sucat Senior High School School Property & Inventory Management System — Confidential', pw / 2, ph - 8, { align: 'center' });
+    doc.text('Sucat Senior High School Property & Inventory Management System — Confidential', pw / 2, ph - 8, { align: 'center' });
 
     doc.save(`SES_Audit_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
     addToHistory('Monthly Inventory Audit', 'PDF');
@@ -257,7 +257,7 @@ export default function Reports() {
     doc.setDrawColor(13, 27, 110); doc.setLineWidth(1.5);
     doc.line(m, y, pw - m, y); y += 8;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(13, 27, 110);
-    doc.text('SUCAT SENIOR HIGH SCHOOL SCHOOL', pw / 2, y, { align: 'center' }); y += 7;
+    doc.text('SUCAT SENIOR HIGH SCHOOL', pw / 2, y, { align: 'center' }); y += 7;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100);
     doc.text('City of Muntinlupa', pw / 2, y, { align: 'center' }); y += 10;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(13, 27, 110);
@@ -337,7 +337,7 @@ export default function Reports() {
     // Footer
     doc.setDrawColor(13, 27, 110); doc.setLineWidth(0.3); doc.line(m, ph - 12, pw - m, ph - 12);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(150);
-    doc.text('Sucat Senior High School School Property & Inventory Management System — Confidential', pw / 2, ph - 8, { align: 'center' });
+    doc.text('Sucat Senior High School Property & Inventory Management System — Confidential', pw / 2, ph - 8, { align: 'center' });
 
     doc.save(`SES_Accountability_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
     addToHistory('Asset Accountability Report', 'PDF');
@@ -367,7 +367,7 @@ export default function Reports() {
           Document Generation Center
         </h2>
         <p className="font-body mt-1" style={{ fontSize: 13, color: 'var(--muted-text)' }}>
-          Generate official reports and export records for the Sucat Senior High School School Property Office
+          Generate official reports and export records for the Sucat Senior High School Property Office
         </p>
       </div>
 
