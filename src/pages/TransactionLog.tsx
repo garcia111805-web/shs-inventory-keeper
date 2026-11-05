@@ -221,8 +221,8 @@ export default function TransactionLog() {
                     {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
                   </span>
                 </td>
-                <td className="px-4 py-3.5 font-body font-bold text-sm" style={{ color: tx.qtyChange > 0 ? '#16a34a' : '#dc2626' }}>
-                  {tx.qtyChange > 0 ? '+' : '−'}{Math.abs(tx.qtyChange)}
+                <td className="px-4 py-3.5 font-body font-bold text-sm" style={{ color: tx.qtyChange > 0 ? '#16a34a' : tx.qtyChange < 0 ? '#dc2626' : 'var(--muted-text)' }}>
+                  {tx.qtyChange > 0 ? '+' : tx.qtyChange < 0 ? '−' : ''}{Math.abs(tx.qtyChange)}
                 </td>
                 <td className="px-4 py-3.5 font-body font-bold text-sm" style={{ color: 'var(--fg-color)' }}>{tx.newStock}</td>
                 <td className="px-4 py-3.5 font-body text-xs" style={{ color: 'var(--fg-color)' }}>

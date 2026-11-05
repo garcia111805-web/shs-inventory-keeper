@@ -182,7 +182,7 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 }
 
 export default function CSVImportModal({ onClose }: Props) {
-  const { items, addItem, updateItem, wipeAllItems, showToast } = useInventory();
+  const { items, addItem, wipeAllItems, showToast } = useInventory();
   const { user } = useAuth();
   const { categories: dbCategories, addCategory } = useCategories();
   const { locations, loading: locationsLoading } = useLocations();
@@ -308,6 +308,8 @@ export default function CSVImportModal({ onClose }: Props) {
     for (const row of dataRows) {
       const rawName = row[nameIdx]?.trim();
       if (!rawName || rawName === 'Materials' || rawName === 'Item Name' || rawName === 'Name') continue;
+      // Skip spreadsheet error cells like #REF! / #N/A / #VALUE! (broke-formula junk)
+      if (/^#(REF|N\/A|VALUE|NAME|DIV\/0|NULL|NUM|NULL!)?!?$/.test(rawName.trim())) continue;
 
       const formattedName = formatItemName(rawName);
       const nameLower = formattedName.toLowerCase();
@@ -465,8 +467,6 @@ export default function CSVImportModal({ onClose }: Props) {
     }
   };
 
-  const newItems = parsed.filter(r => !r.isDuplicate);
-  const duplicateCount = parsed.filter(r => r.isDuplicate).length;
   const totalToProcess = parsed.length;
 
   const handleImport = async () => {
@@ -474,9 +474,9 @@ export default function CSVImportModal({ onClose }: Props) {
     setImported(0);
 
     let successCount = 0;
-    const addedLog: { name: string; qty: number; category: string }[] = [];
+    let failCount = 0;
 
-    // Register any new categories if found in parsed items
+    // Register any new categories found in parsed items
     for (const row of parsed) {
       if (row.category && !availableCategoryNames.includes(row.category.toLowerCase())) {
         try {
@@ -486,34 +486,29 @@ export default function CSVImportModal({ onClose }: Props) {
       }
     }
 
+    // FULL REPLACE: wipe all existing items first, then load the file's items fresh.
+    try {
+      await wipeAllItems();
+    } catch {
+      failCount += 1;
+      setFailed(failCount);
+      setImporting(false);
+      showToast('Failed to clear existing inventory. Please try again.', 'error');
+      return;
+    }
+
     for (const row of parsed) {
-      const existing = row.isDuplicate
-        ? items.find(i => i.name.toLowerCase().trim() === row.name.toLowerCase().trim())
-        : undefined;
       try {
-        if (existing) {
-          await updateItem({
-            ...existing,
-            category: row.category,
-            unit: row.unit,
-            quantity: row.quantity,
-            lowStockThreshold: row.lowStockThreshold,
-            notes: row.notes || existing.notes,
-            location: row.location || existing.location,
-            isConsumable: row.isConsumable,
-          });
-        } else {
-          await addItem({
-            name: row.name,
-            category: row.category,
-            unit: row.unit,
-            quantity: row.quantity,
-            lowStockThreshold: row.lowStockThreshold,
-            notes: row.notes,
-            location: row.location || undefined,
-            isConsumable: row.isConsumable,
-          });
-        }
+        await addItem({
+          name: row.name,
+          category: row.category,
+          unit: row.unit,
+          quantity: row.quantity,
+          lowStockThreshold: row.lowStockThreshold,
+          notes: row.notes,
+          location: row.location || undefined,
+          isConsumable: row.isConsumable,
+        });
         successCount++;
         setImported(successCount);
       } catch {
@@ -527,7 +522,7 @@ export default function CSVImportModal({ onClose }: Props) {
     const note = successCount > 0
       ? `${successCount} item${successCount !== 1 ? 's' : ''} imported successfully`
       : 'Nothing to import';
-    showToast(note, 'success');
+    showToast(note, failCount > 0 ? 'warning' : 'success');
   };
 
   return (
@@ -700,12 +695,10 @@ export default function CSVImportModal({ onClose }: Props) {
                 style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)' }}
               >
                 <p className="font-body text-xs font-semibold" style={{ color: '#d97706' }}>
-                  New items will be added. Existing items will be updated.
+                  ⚠️ Importing will REPLACE your entire inventory with this file.
                 </p>
                 <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
-                  {duplicateCount > 0
-                    ? `${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} detected and will be updated.`
-                    : 'No duplicates detected.'}
+                  {parsed.length} item{parsed.length === 1 ? '' : 's'} from the file will be loaded. All {items.length} current item{items.length === 1 ? '' : 's'} will be cleared first.
                 </p>
               </div>
             )}
