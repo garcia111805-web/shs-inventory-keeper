@@ -339,8 +339,63 @@ export default function SettingsPage() {
         {/* User Management Section */}
         <UserManagementSection />
 
+        {/* Import History Section */}
+        <ImportHistorySection />
+
       </div>
     </div>
+  );
+}
+
+function ImportHistorySection() {
+  const { importHistory } = useInventory();
+
+  return (
+    <section className="panel-card p-8 space-y-4 lg:col-span-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <h2 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>Import History</h2>
+            <p className="font-body text-xs" style={{ color: 'var(--muted-text)' }}>Every file import into the inventory</p>
+          </div>
+        </div>
+        <span className="font-body font-black text-sm bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full">
+          {importHistory.length}
+        </span>
+      </div>
+
+      {importHistory.length === 0 ? (
+        <div className="text-center py-12 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+          <p className="font-body text-sm" style={{ color: 'var(--muted-text)' }}>No imports recorded yet.</p>
+        </div>
+      ) : (
+        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 360, overflowY: 'auto' }}>
+          <table className="w-full" style={{ fontSize: 13 }}>
+            <thead className="sticky-thead">
+              <tr style={{ background: 'var(--table-header-bg)', borderBottom: '1px solid var(--card-border)' }}>
+                <th className="text-left px-4 py-3 font-body uppercase text-xs font-bold tracking-wider" style={{ color: 'var(--muted-text)' }}>DATE</th>
+                <th className="text-left px-4 py-3 font-body uppercase text-xs font-bold tracking-wider" style={{ color: 'var(--muted-text)' }}>FILE</th>
+                <th className="text-left px-4 py-3 font-body uppercase text-xs font-bold tracking-wider" style={{ color: 'var(--muted-text)' }}>ITEMS</th>
+                <th className="text-left px-4 py-3 font-body uppercase text-xs font-bold tracking-wider" style={{ color: 'var(--muted-text)' }}>BY</th>
+              </tr>
+            </thead>
+            <tbody>
+              {importHistory.map((rec, i) => (
+                <tr key={rec.id} style={{ borderBottom: '1px solid var(--card-border)', background: i % 2 === 0 ? 'var(--input-bg)' : 'transparent' }}>
+                  <td className="px-4 py-3 font-body text-xs" style={{ color: 'var(--muted-text)' }}>{new Date(rec.createdAt).toLocaleString()}</td>
+                  <td className="px-4 py-3 font-body font-bold" style={{ color: 'var(--fg-color)' }}>{rec.fileName}</td>
+                  <td className="px-4 py-3 font-body font-bold" style={{ color: '#15803d' }}>+{rec.itemCount}</td>
+                  <td className="px-4 py-3 font-body" style={{ color: 'var(--fg-color)' }}>{rec.importedBy}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

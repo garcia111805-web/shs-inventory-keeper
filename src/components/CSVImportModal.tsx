@@ -182,7 +182,7 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 }
 
 export default function CSVImportModal({ onClose }: Props) {
-  const { items, addItem, wipeAllItems, showToast } = useInventory();
+  const { items, addItem, wipeAllItems, logImport, showToast } = useInventory();
   const { user } = useAuth();
   const { categories: dbCategories, addCategory } = useCategories();
   const { locations, loading: locationsLoading } = useLocations();
@@ -519,6 +519,10 @@ export default function CSVImportModal({ onClose }: Props) {
 
     setImporting(false);
     setDone(true);
+    if (successCount > 0) {
+      const byName = user?.fullName || 'System';
+      await logImport({ fileName, itemCount: successCount, importedBy: byName });
+    }
     const note = successCount > 0
       ? `${successCount} item${successCount !== 1 ? 's' : ''} imported successfully`
       : 'Nothing to import';

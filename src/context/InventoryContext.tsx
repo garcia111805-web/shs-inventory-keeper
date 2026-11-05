@@ -28,6 +28,16 @@ interface InventoryContextType {
    * This is used for a full wipe before a fresh import.
    */
   wipeAllItems: () => Promise<void>;
+  importHistory: ImportRecord[];
+  logImport: (rec: { fileName: string; itemCount: number; importedBy: string }) => Promise<void>;
+}
+
+export interface ImportRecord {
+  id: string;
+  fileName: string;
+  itemCount: number;
+  importedBy: string;
+  createdAt: string;
 }
 
 export interface ToastItem {
@@ -99,6 +109,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     return initialItems;
   });
   const [transactions, setTransactions] = useState<Transaction[]>(() => loadFromLS<Transaction[]>('sucat_transactions', []));
+  const [importHistory, setImportHistory] = useState<ImportRecord[]>(() => loadFromLS<ImportRecord[]>('sucat_import_history', []));
   const [currentPage, setCurrentPage] = useState<PageName>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -120,6 +131,14 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       } catch {}
     }
   }, [transactions]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      try {
+        localStorage.setItem('sucat_import_history', JSON.stringify(importHistory));
+      } catch {}
+    }
+  }, [importHistory]);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' = 'success') => {
     const id = `toast-${Date.now()}`;
@@ -571,6 +590,39 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const logImport = useCallback(async (rec: { fileName: string; itemCount: number; importedBy: string }) => {
+    const now = new Date().toISOString();
+    const record: ImportRecord = { id: `imp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`, fileName: rec.fileName, itemCount: rec.itemCount, importedBy: rec.importedBy, createdAt: now };
+    setImportHistory(prev => [record, ...prev]);
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('import_log').insert({
+          file_name: rec.fileName,
+          item_count: rec.itemCount,
+          imported_by: rec.importedBy,
+          created_at: now,
+        });
+        if (error) console.error('Insert import log error:', error.message);
+      } catch (err) {
+        console.error('Failed to log import:', err);
+        // non-blocking — import itself already succeeded
+      }
+    }
+  }, []);
+
+  // Load import history from Supabase (best-effort)
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabase.from('import_log').select('id, file_name, item_count, imported_by, created_at').order('created_at', { ascending: false }).limit(50)
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          setImportHistory(data.map((r: any) => ({ id: r.id, fileName: r.file_name, itemCount: r.item_count, importedBy: r.imported_by, createdAt: r.created_at })));
+        }
+      })
+      .catch(() => { /* table may not exist yet — ignore */ });
+  }, []);
+
   const voidTransaction = useCallback(async (tx: Transaction) => {
     if (!isSupabaseConfigured) {
       const item = items.find(i => i.id === tx.itemId);
@@ -636,6 +688,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       setCurrentPage, setSearchQuery,
       addItem, updateItem, deleteItem, addTransaction, updateTransaction, voidTransaction, refreshData, showToast, toasts,
       moveItemToQuarantine, releaseFromQuarantine, disposeFromQuarantine, wipeAllItems,
+      importHistory, logImport,
     }}>
       {children}
     </InventoryContext.Provider>
