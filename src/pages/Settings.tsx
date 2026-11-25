@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocations } from '../hooks/useLocations';
 import { useUsers } from '../hooks/useUsers';
 import { useCategories } from '../hooks/useCategories';
 import { useUnits } from '../hooks/useUnits';
 import { useInventory } from '../context/InventoryContext';
-import { MapPin, Plus, Pencil, Trash2, Check, X, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck, LayoutGrid, Ruler } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Check, X, Loader2, Users, UserPlus, Key, Fingerprint, ShieldCheck, LayoutGrid, Ruler, Download, RotateCcw, DatabaseBackup, AlertTriangle } from 'lucide-react';
 import { UserRole } from '../types';
+import {
+  listImportBackups,
+  getBackupPayload,
+  rowsToCsv,
+  downloadCsvFile,
+  backupFileName,
+  restoreImportBackup,
+  type ImportBackup,
+} from '../lib/importBackup';
 
 // ─── Reusable Row Editor ─────────────────────────────────────────────────────
 interface EntryRowProps {
@@ -342,6 +351,9 @@ export default function SettingsPage() {
         {/* Import History Section */}
         <ImportHistorySection />
 
+        {/* Pre-import Backups Section */}
+        <ImportBackupSection />
+
       </div>
     </div>
   );
@@ -394,6 +406,178 @@ function ImportHistorySection() {
             </tbody>
           </table>
         </div>
+      )}
+    </section>
+  );
+}
+
+function ImportBackupSection() {
+  const { showToast, refreshData } = useInventory();
+  const [backups, setBackups] = useState<ImportBackup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const load = async () => {
+    try {
+      setBackups(await listImportBackups(20));
+      setUnavailable(false);
+    } catch {
+      // Table may not exist yet — the SQL in supabase/import_backups.sql hasn't been run.
+      setUnavailable(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const reasonLabel = (reason: string) =>
+    reason === 'manual-clear' ? 'Cleared manually'
+      : reason === 'pre-restore' ? 'Pre-restore safety net'
+        : 'Before import';
+
+  const handleDownload = async (b: ImportBackup) => {
+    setBusyId(b.id);
+    try {
+      const rows = await getBackupPayload(b.id);
+      downloadCsvFile(rowsToCsv(rows), backupFileName(b.createdAt, b.fileName));
+      showToast(`Downloaded ${rows.length} items from "${b.fileName}"`, 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not download that backup.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleRestore = async (b: ImportBackup) => {
+    setBusyId(b.id);
+    try {
+      const n = await restoreImportBackup(b.id, 'Settings restore');
+      await refreshData();
+      showToast(`Restored ${n} items from "${b.fileName}"`, 'success');
+      setConfirmId(null);
+      await load();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Restore failed.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <section className="panel-card p-8 space-y-4 lg:col-span-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(13,27,110,0.08)', color: '#0d1b6e' }}>
+            <DatabaseBackup size={20} />
+          </div>
+          <div>
+            <h2 className="font-heading font-bold text-xl" style={{ color: 'var(--heading-color)' }}>Inventory Backups</h2>
+            <p className="font-body text-xs" style={{ color: 'var(--muted-text)' }}>
+              Taken automatically before every import or manual clear — download or roll back
+            </p>
+          </div>
+        </div>
+        <span className="font-body font-black text-sm px-3 py-1 rounded-full" style={{ background: 'rgba(13,27,110,0.08)', color: '#0d1b6e' }}>
+          {backups.length}
+        </span>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 py-8 justify-center">
+          <Loader2 size={16} className="animate-spin" style={{ color: 'var(--muted-text)' }} />
+          <span className="font-body text-sm" style={{ color: 'var(--muted-text)' }}>Loading backups…</span>
+        </div>
+      ) : unavailable ? (
+        <div className="rounded-xl p-4 flex items-start gap-2.5" style={{ background: 'rgba(180,83,9,0.07)', border: '1px solid rgba(180,83,9,0.25)' }}>
+          <AlertTriangle size={16} style={{ color: '#b45309', marginTop: 2 }} />
+          <div>
+            <p className="font-body font-semibold text-xs" style={{ color: '#b45309' }}>Backups table not found</p>
+            <p className="font-body text-[11px]" style={{ color: 'var(--muted-text)' }}>
+              Run <code>supabase/import_backups.sql</code> in the Supabase SQL editor, then reload. Imports still work, but they are not reversible until this is applied.
+            </p>
+          </div>
+        </div>
+      ) : backups.length === 0 ? (
+        <div className="text-center py-12 rounded-2xl border border-dashed" style={{ borderColor: 'var(--card-border)', background: 'var(--input-bg)' }}>
+          <p className="font-body text-sm" style={{ color: 'var(--muted-text)' }}>No backups yet. One is taken automatically the next time you import.</p>
+        </div>
+      ) : (
+        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 360, overflowY: 'auto' }}>
+          <table className="w-full" style={{ fontSize: 13 }}>
+            <thead className="sticky-thead">
+              <tr style={{ background: 'var(--table-header-bg)', borderBottom: '1px solid var(--card-border)' }}>
+                <th className="text-left px-4 py-3 font-body uppercase text-xs font-bold tracking-wider" style={{ color: 'var(--muted-text)' }}>TAKEN</th>
+                <th className="text-left px-4 py-3 font-body uppercase text-xs font-bold tracking-wider" style={{ color: 'var(--muted-text)' }}>SOURCE</th>
+                <th className="text-left px-4 py-3 font-body uppercase text-xs font-bold tracking-wider" style={{ color: 'var(--muted-text)' }}>ITEMS</th>
+                <th className="text-right px-4 py-3 font-body uppercase text-xs font-bold tracking-wider" style={{ color: 'var(--muted-text)' }}>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {backups.map((b, i) => (
+                <tr key={b.id} style={{ borderBottom: '1px solid var(--card-border)', background: i % 2 === 0 ? 'var(--input-bg)' : 'transparent' }}>
+                  <td className="px-4 py-3 font-body text-xs" style={{ color: 'var(--muted-text)' }}>
+                    {new Date(b.createdAt).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 font-body" style={{ color: 'var(--fg-color)' }}>
+                    <span className="font-bold">{b.fileName}</span>
+                    <br />
+                    <span className="text-[11px]" style={{ color: 'var(--muted-text)' }}>{reasonLabel(b.reason)}</span>
+                  </td>
+                  <td className="px-4 py-3 font-body font-bold" style={{ color: '#0d1b6e' }}>{b.rowCount}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        disabled={busyId === b.id}
+                        onClick={() => void handleDownload(b)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-body font-semibold text-xs"
+                        style={{ background: 'var(--input-bg)', color: 'var(--fg-color)', border: '1px solid var(--card-border)', cursor: busyId === b.id ? 'not-allowed' : 'pointer', opacity: busyId === b.id ? 0.6 : 1 }}
+                      >
+                        <Download size={13} /> CSV
+                      </button>
+                      {confirmId === b.id ? (
+                        <>
+                          <button
+                            disabled={busyId === b.id}
+                            onClick={() => void handleRestore(b)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-body font-semibold text-xs text-white"
+                            style={{ background: '#b91c1c', border: 'none', cursor: busyId === b.id ? 'not-allowed' : 'pointer', opacity: busyId === b.id ? 0.6 : 1 }}
+                          >
+                            {busyId === b.id ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />} Confirm
+                          </button>
+                          <button
+                            onClick={() => setConfirmId(null)}
+                            className="px-2.5 py-1.5 rounded-lg font-body font-semibold text-xs"
+                            style={{ background: 'var(--input-bg)', color: 'var(--fg-color)', border: '1px solid var(--card-border)', cursor: 'pointer' }}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          disabled={busyId === b.id}
+                          onClick={() => setConfirmId(b.id)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-body font-semibold text-xs"
+                          style={{ background: 'rgba(185,28,28,0.08)', color: '#b91c1c', border: '1px solid rgba(185,28,28,0.25)', cursor: busyId === b.id ? 'not-allowed' : 'pointer', opacity: busyId === b.id ? 0.6 : 1 }}
+                        >
+                          <RotateCcw size={13} /> Restore
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {confirmId && (
+        <p className="font-body text-[11px]" style={{ color: '#b91c1c' }}>
+          Restore wipes the current inventory and loads the snapshot. A safety backup of the current state is taken first.
+        </p>
       )}
     </section>
   );

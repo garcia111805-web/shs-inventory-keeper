@@ -51,8 +51,9 @@ vercel.json       cron: /api/keepalive at "0 0 * * *"
 ## Supabase
 - Project ref `ipmqmtjfnalnyqrvmvzz`. The `supabase` connector is connected in the `dev` profile,
   so schema and rows are readable directly — no need to guess.
-- **Verified 2026-11-26** (`public` schema, 8 tables): `items` 73 rows, `transactions` 8,
-  `import_log` 1, `categories` 2, `app_users` 0, `departments` 0, `locations` 0, `units` 0.
+- **Verified 2026-11-26** (`public` schema, 9 tables): `items` 73 rows, `transactions` 8,
+  `import_log` 1, `categories` 2, `import_backups` 0, `app_users` 0, `departments` 0,
+  `locations` 0, `units` 0.
 - `departments`, `locations`, `units`, `categories`, `app_users` are effectively empty — the app
   works off `items` + `transactions` alone. Any "filter by department/location" UI is currently
   filtering against nothing. Worth confirming with the school before building on those tables.
@@ -76,6 +77,21 @@ vercel.json       cron: /api/keepalive at "0 0 * * *"
 - Every successful import writes a row to `import_log` (file_name, item_count, imported_by,
   created_at). Surfaced in Settings → Import History. Don't break that write.
 - Helper scripts at repo root (`clean_csv.py`, `fix-consumables.mjs`) are one-off utilities.
+
+## Backups — the safety net for that import
+`import_backups` (SQL: `supabase/import_backups.sql`) holds a jsonb snapshot of `items` taken
+**immediately before every destructive wipe**. Lives in `src/lib/importBackup.ts`.
+
+Rules that must hold:
+- `handleImport` in `CSVImportModal` calls `createImportBackup` **before** `wipeAllItems`, and
+  **aborts the whole import** if the snapshot fails. Never reorder that — a wipe without a backup
+  is unrecoverable.
+- The manual "Clear All Inventory" button backs up first too (`reason: 'manual-clear'`).
+- `restoreImportBackup` takes its own `pre-restore` snapshot before wiping, so a restore is
+  itself reversible.
+- Settings → **Inventory Backups** lists snapshots with Download CSV and Restore. The CSV maps
+  back to the importer's column order, so a download can be re-imported directly.
+- Proof this path works end-to-end (anon key, real DB): insert → 201, delete → 204, empty after.
 
 ## Deploy
 - Vercel auto-deploys `main`. Push to main = live in ~1 min. **Treat that as production.**
@@ -112,7 +128,11 @@ chat, never put a service_role key in a `VITE_` variable — anything prefixed `
 to the browser.
 
 ## Open items
-- `ui-makeover`: uncommitted work, paused by user.
+- `ui-makeover`: committed WIP checkpoint (`1fd7165`), paused by user, not merged.
 - `FUTURE_FEATURE_BORROW_SLIP.md` at root — planned borrow-slip feature, not started.
 - No CI. Tests exist but don't gate deploys.
-- Import has no undo and no pre-import backup step.
+- Backups are never pruned — `import_backups` will grow with each import. Add a retention rule
+  (keep N, or drop older than 90 days) once there's real traffic.
+- The SQL in `supabase/import_backups.sql` was applied to the live DB manually on 2026-11-26;
+  a fresh environment needs it run by hand.
+- Anon key can read/write every table, including backups. Accepted risk, documented above.

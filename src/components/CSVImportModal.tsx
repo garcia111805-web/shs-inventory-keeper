@@ -8,6 +8,7 @@ import { Category, getCategoryColor, getCategoryLabel } from '../types';
 import ModalOverlay from './ModalOverlay';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatItemName, guessConsumable } from '../lib/utils';
+import { createImportBackup } from '../lib/importBackup';
 import { initialItems } from '../data/initialItems';
 import * as XLSX from 'xlsx';
 
@@ -486,7 +487,25 @@ export default function CSVImportModal({ onClose }: Props) {
       }
     }
 
-    // FULL REPLACE: wipe all existing items first, then load the file's items fresh.
+    // FULL REPLACE: snapshot the current inventory FIRST — a wipe with no backup cannot be undone.
+    try {
+      await createImportBackup({
+        fileName: fileName || 'Import',
+        reason: 'import',
+        createdBy: user?.fullName || 'System',
+      });
+    } catch (backupErr) {
+      setImporting(false);
+      showToast(
+        backupErr instanceof Error
+          ? backupErr.message
+          : 'Could not save a backup — import cancelled, inventory untouched.',
+        'error'
+      );
+      return;
+    }
+
+    // Then wipe all existing items, and load the file's items fresh.
     try {
       await wipeAllItems();
     } catch {
@@ -600,6 +619,12 @@ export default function CSVImportModal({ onClose }: Props) {
                     onClick={async () => {
                       setWiping(true);
                       try {
+                        // Snapshot before the manual wipe too — same irreversibility.
+                        await createImportBackup({
+                          fileName: 'Manual clear',
+                          reason: 'manual-clear',
+                          createdBy: user?.fullName || 'System',
+                        });
                         await wipeAllItems();
                         setParsed([]);
                         setFileName('');
