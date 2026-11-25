@@ -6,12 +6,19 @@ Sucat Senior High School (SSHS) Inventory Management System. Read this before to
 School inventory tracker for Sucat SSHS, Muntinlupa. Built as a school project, now in a
 ~1-month trial with the school. Live and in use — treat production data as real.
 
-- **Live:** https://sucat-elementary-inventory.vercel.app
+- **Live:** https://sucat-shs-inventory.vercel.app (verified 200, 2026-11-26)
 - **Repo:** github.com/garcia111805-web/shs-inventory-keeper (`origin`)
 - **Local:** `C:\PROJECTS\SUCAT ELEMENTARY INVENTORY SYSTEM`
+- **Vercel project:** `sucat-seniorhigh-inventory` (team `justins-projects-d91d43d5`)
 
-The name/URL still says "elementary" (Vercel project name is historical). The app itself is
-rebranded to Sucat Senior High School — favicon + logo come from `public/sshs-logo.jpg`.
+Naming is a mess and it bites: the local folder says "elementary", the Vercel project says
+"seniorhigh", the live alias says "shs", and `sucat-elementary-inventory.vercel.app` is a **dead
+404**. The working URL is `sucat-shs-inventory.vercel.app`. There are two Vercel projects from the
+rebrand era (`sucat-shs-inventory`, older, and `sucat-seniorhigh-inventory`, current) — don't
+deploy to the wrong one.
+
+The app itself is rebranded to Sucat Senior High School — favicon + logo come from
+`public/sshs-logo.jpg`.
 
 ## Stack
 Vite + React + TypeScript + Tailwind + shadcn/ui. Backend Supabase. Hosting Vercel.
